@@ -492,176 +492,120 @@ def compute_technicals(closes, volumes, opens=None):
 
 async def fetch_all_stocks_and_screen(trade_date):
     """
-    全市场扫描：使用 yfinance 获取 K 线（GitHub Actions 全球可正常访问）
-    1. akshare 获取全市场 A 股代码 + 名称
-    2. yfinance 批量下载 60 日 OHLCV（每批 500 只）
-    3. 初筛涨幅 0.5%~7% 非ST，技术面评分，输出 TOP 20
+    全市场扫描（沪深两市）：
+    1. ak.stock_zh_a_spot_em() 一次拉取全市场 A 股实时行情（含代码/名称/涨跌幅/价格）
+    2. 初筛：涨 0.5%~7%，非ST → TOP 120
+    3. yfinance 只拉 TOP120 的 60 日 K 线 → 技术面评分 → TOP 20
     """
     import akshare as ak
     import yfinance as yf
     import pandas as pd
 
-    stock_codes = {}   # code -> name
-    print("[全市场扫描] 获取 A 股代码列表...")
-
-    # 上交所
+    print("[全市场扫描] ak.stock_zh_a_spot_em() 拉取全市场行情（沪深两市）...")
+    df_spot = None
     try:
-        df_sh = ak.stock_info_sh_name_code()
-        code_col = next((c for c in df_sh.columns if '代码' in c or 'code' in c.lower()), df_sh.columns[0])
-        name_col = next((c for c in df_sh.columns if '简称' in c), None)
-        for _, row in df_sh.iterrows():
-            code = str(row[code_col]).zfill(6)
-            name = str(row[name_col]) if name_col else code
-            if len(code) == 6:
-                stock_codes[code] = name
-        print(f"[全市场扫描] 上交所: {len(df_sh)} 只")
+        df_spot = ak.stock_zh_a_spot_em()
+        print(f"[全市场扫描] 返回 {len(df_spot)} 只，列: {list(df_spot.columns[:6])}")
     except Exception as e:
-        print(f"[全市场扫描] 上交所失败: {e}")
+        print(f"[全市场扫描] stock_zh_a_spot_em 失败: {e}")
 
-    # 深交所
-    try:
-        df_sz = ak.stock_info_sz_name_code()
-        code_col = next((c for c in df_sz.columns if '代码' in c), df_sz.columns[0])
-        name_col = next((c for c in df_sz.columns if '简称' in c or '名称' in c), None)
-        for _, row in df_sz.iterrows():
-            code = str(row[code_col]).zfill(6)
-            name = str(row[name_col]) if name_col else code
-            if len(code) == 6:
-                stock_codes[code] = name
-        print(f"[全市场扫描] 深交所: {len(df_sz)} 只")
-    except Exception as e:
-        print(f"[全市场扫描] 深交所失败: {e}")
-
-    if not stock_codes:
-        print("[全市场扫描] 无法获取股票列表，跳过")
+    if df_spot is None or df_spot.empty:
+        print("[全市场扫描] 无行情数据，跳过")
         return [{'sector': '全市场精选', 'stocks': []}], {}
 
-    # 过滤纯 A 股
-    def is_a_share(code):
-        if len(code) != 6: return False
-        if code[:2] in ['51','52','53','54','55','56','57','58']: return False
-        if code[:2] in ['10','11','12','13','14']: return False
-        if code[:3] in ['159','160','161','162','163','164','165']: return False
-        return code[0] in '6038' or code[:3] in ['000','001','002','003','004','005']
+    # 识别关键列
+    code_col  = next((c for c in df_spot.columns if '代码' in c), None)
+    name_col  = next((c for c in df_spot.columns if '名称' in c), None)
+    price_col = next((c for c in df_spot.columns if '最新价' in c or '现价' in c), None)
+    chg_col   = next((c for c in df_spot.columns if '涨跌幅' in c), None)
 
-    all_codes = [(c, n) for c, n in stock_codes.items() if is_a_share(c)]
-    print(f"[全市场扫描] 过滤后纯 A 股 {len(all_codes)} 只，开始 yfinance 下载...")
-
-    # 上海 .SS，深圳/创业/北交所 .SZ
-    def to_yf(code):
-        return f"{code}.SS" if code.startswith(('60', '68', '90')) else f"{code}.SZ"
-
-    yf_to_code = {to_yf(c): c for c, _ in all_codes}
-    yf_to_name = {to_yf(c): n for c, n in all_codes}
-    yf_tickers  = list(yf_to_code.keys())
-
-    kline_map = {}   # code -> {'closes', 'opens', 'volumes'}
-    batch_size = 500
-    total_batches = (len(yf_tickers) + batch_size - 1) // batch_size
-
-    for i in range(0, len(yf_tickers), batch_size):
-        batch = yf_tickers[i:i+batch_size]
-        bn = i // batch_size + 1
-        print(f"[全市场扫描] yfinance 批次 {bn}/{total_batches}，{len(batch)} 只...")
-        try:
-            df = yf.download(
-                tickers=batch,
-                period='60d',
-                interval='1d',
-                auto_adjust=True,
-                progress=False,
-                threads=True,
-            )
-            if df.empty:
-                print(f"  批次 {bn}: 空数据")
-                await asyncio.sleep(1)
-                continue
-
-            # nlevels>1 → MultiIndex(field, ticker)；nlevels==1 → 单只扁平列
-            is_multi = df.columns.nlevels > 1
-
-            for ticker in batch:
-                code = yf_to_code.get(ticker, '')
-                if not code:
-                    continue
-                try:
-                    if is_multi:
-                        lvl0 = df.columns.get_level_values(0)
-                        if 'Close' not in lvl0:
-                            continue
-                        if ticker not in df['Close'].columns:
-                            continue
-                        c_ser = df['Close'][ticker]
-                        o_ser = df['Open'][ticker]   if 'Open'   in lvl0 and ticker in df['Open'].columns   else pd.Series(dtype=float)
-                        v_ser = df['Volume'][ticker] if 'Volume' in lvl0 and ticker in df['Volume'].columns else pd.Series(dtype=float)
-                    else:
-                        # 单只时 df 无 MultiIndex
-                        c_ser = df['Close']  if 'Close'  in df.columns else pd.Series(dtype=float)
-                        o_ser = df['Open']   if 'Open'   in df.columns else pd.Series(dtype=float)
-                        v_ser = df['Volume'] if 'Volume' in df.columns else pd.Series(dtype=float)
-
-                    tmp = pd.DataFrame({'c': c_ser, 'o': o_ser, 'v': v_ser}).dropna(subset=['c'])
-                    tmp['o'] = tmp['o'].fillna(0)
-                    tmp['v'] = tmp['v'].fillna(0)
-
-                    if len(tmp) >= 5:
-                        kline_map[code] = {
-                            'closes':  tmp['c'].tolist(),
-                            'opens':   tmp['o'].tolist(),
-                            'volumes': tmp['v'].tolist(),
-                        }
-                except Exception:
-                    pass
-
-            print(f"  批次 {bn}: 累计有效 {len(kline_map)} 只")
-        except Exception as e:
-            print(f"  批次 {bn} 失败: {e}")
-        await asyncio.sleep(1)
-
-    print(f"[全市场扫描] yfinance 完成，共 {len(kline_map)} 只有数据")
-    if not kline_map:
+    if not code_col:
+        print(f"[全市场扫描] 无法识别列名: {list(df_spot.columns)}")
         return [{'sector': '全市场精选', 'stocks': []}], {}
 
-    # ── 初筛：今日涨幅 0.5%~7%，非ST ──
+    # 初筛：涨 0.5%~7%，非ST，有价格
     candidates = []
     price_map_from_spot = {}
 
-    for code, kdata in kline_map.items():
-        closes  = kdata['closes']
-        opens   = kdata['opens']
-        volumes = kdata['volumes']
-        name    = yf_to_name.get(to_yf(code), code)
+    for _, row in df_spot.iterrows():
+        code  = str(row[code_col]).zfill(6)
+        name  = str(row[name_col]) if name_col else code
+        price = safe_float(row[price_col]) if price_col else 0
+        chg   = safe_float(row[chg_col])   if chg_col  else 0
 
-        if len(closes) < 2:
+        if len(code) != 6 or price <= 0:
             continue
-        close, prev = closes[-1], closes[-2]
-        if prev <= 0 or close <= 0:
-            continue
-
-        chg = (close - prev) / prev * 100
-        price_map_from_spot[code] = close
+        price_map_from_spot[code] = price
 
         if 0.5 <= chg <= 7.0 and 'ST' not in name.upper():
             candidates.append({
                 'code': code, 'name': name,
-                'price': round(close, 2), 'chg': round(chg, 2), 'zhuli': 0.0,
-                'closes': closes, 'opens': opens, 'volumes': volumes,
+                'price': round(price, 2), 'chg': round(chg, 2), 'zhuli': 0.0,
             })
 
     candidates.sort(key=lambda x: x['chg'], reverse=True)
     candidates = candidates[:120]
-    print(f"[全市场扫描] 初筛 {len(candidates)} 只（涨 0.5%~7%，非ST）")
+    print(f"[全市场扫描] 初筛 {len(candidates)} 只（涨 0.5%~7%，非ST，沪深两市）")
 
-    # ── 技术面评分 ──
+    if not candidates:
+        return [{'sector': '全市场精选', 'stocks': []}], price_map_from_spot
+
+    # yfinance 只拉 TOP120 的 K 线（上海 .SS，深圳/创业板 .SZ）
+    def to_yf(code):
+        return f"{code}.SS" if code.startswith(('60', '68', '90')) else f"{code}.SZ"
+
+    yf_tickers = [to_yf(s['code']) for s in candidates]
+    print(f"[全市场扫描] yfinance 拉取 {len(yf_tickers)} 只 K 线...")
+
+    try:
+        df_kl = yf.download(
+            tickers=yf_tickers,
+            period='60d',
+            interval='1d',
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+    except Exception as e:
+        print(f"[全市场扫描] yfinance 失败: {e}")
+        return [{'sector': '全市场精选', 'stocks': []}], price_map_from_spot
+
+    if df_kl.empty:
+        print("[全市场扫描] yfinance 返回空数据")
+        return [{'sector': '全市场精选', 'stocks': []}], price_map_from_spot
+
+    is_multi = df_kl.columns.nlevels > 1
+    lvl0 = df_kl.columns.get_level_values(0) if is_multi else df_kl.columns
+
+    # 技术面评分
     scored = []
     for s in candidates:
-        closes  = s.pop('closes')
-        opens   = s.pop('opens')
-        volumes = s.pop('volumes')
-        tech = compute_technicals(closes, volumes, opens) if len(closes) >= 20 else None
-        if tech is None:
-            continue
-        scored.append({**s, 'sector': '全市场精选', **tech})
+        ticker = to_yf(s['code'])
+        try:
+            if is_multi:
+                if 'Close' not in lvl0 or ticker not in df_kl['Close'].columns:
+                    continue
+                c_ser = df_kl['Close'][ticker]
+                o_ser = df_kl['Open'][ticker]   if 'Open'   in lvl0 and ticker in df_kl['Open'].columns   else pd.Series(dtype=float)
+                v_ser = df_kl['Volume'][ticker] if 'Volume' in lvl0 and ticker in df_kl['Volume'].columns else pd.Series(dtype=float)
+            else:
+                c_ser = df_kl['Close']  if 'Close'  in df_kl.columns else pd.Series(dtype=float)
+                o_ser = df_kl['Open']   if 'Open'   in df_kl.columns else pd.Series(dtype=float)
+                v_ser = df_kl['Volume'] if 'Volume' in df_kl.columns else pd.Series(dtype=float)
+
+            tmp = pd.DataFrame({'c': c_ser, 'o': o_ser, 'v': v_ser}).dropna(subset=['c'])
+            tmp['o'] = tmp['o'].fillna(0)
+            tmp['v'] = tmp['v'].fillna(0)
+
+            if len(tmp) < 20:
+                continue
+
+            tech = compute_technicals(tmp['c'].tolist(), tmp['v'].tolist(), tmp['o'].tolist())
+            if tech is None:
+                continue
+            scored.append({**s, 'sector': '全市场精选', **tech})
+        except Exception:
+            pass
 
     scored.sort(key=lambda x: (x['score'], x['chg']), reverse=True)
     top20 = scored[:20]

@@ -2,7 +2,7 @@
 """从 SQLite 导出最近60天数据为 JSON，供静态网页读取"""
 
 import sqlite3
-import json
+import json as json
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
@@ -47,10 +47,50 @@ def export():
             for r in ths_rows
         ]
 
+        # 个股推荐
+        reco_rows = conn.execute("""
+            SELECT stock_code, stock_name,
+                   price, chg_pct, zhuli_net,
+                   ma5, ma10, ma20, ma_align,
+                   macd_signal, macd_above_zero,
+                   rsi, vol_ratio, vol_2x,
+                   yang_cross, pullback_10d,
+                   score, signal
+            FROM stock_reco WHERE date=?
+            ORDER BY score DESC, zhuli_net DESC
+        """, (d,)).fetchall()
+        stock_reco = [dict(zip(
+            ['code','name','price','chg','zhuli',
+             'ma5','ma10','ma20','ma_align',
+             'macd_signal','macd_above_zero',
+             'rsi','vol_ratio','vol_2x',
+             'yang_cross','pullback_10d',
+             'score','signal'], r
+        )) for r in reco_rows]
+
+        # 策略复盘（当日是否有复盘记录）
+        review_row = conn.execute(
+            "SELECT prev_date,total_reco,up_count,win_rate,avg_gain,max_gain,max_loss,strategy_score,detail_json FROM strategy_review WHERE review_date=?",
+            (d,)
+        ).fetchone()
+        strategy_review = None
+        if review_row:
+            detail_obj = json.loads(review_row[8]) if review_row[8] else {}
+            strategy_review = {
+                'prev_date': review_row[0], 'total': review_row[1],
+                'up_count': review_row[2], 'win_rate': review_row[3],
+                'avg_gain': review_row[4], 'max_gain': review_row[5],
+                'max_loss': review_row[6], 'strategy_score': review_row[7],
+                'detail': detail_obj.get('detail', []),
+                'signal_stats': detail_obj.get('signal_stats', {}),
+            }
+
         all_data[d] = {
             'market': market,
             'em_sectors': em_sectors,
             'ths_sectors': ths_sectors,
+            'stock_reco': stock_reco,
+            'strategy_review': strategy_review,
         }
 
     conn.close()
