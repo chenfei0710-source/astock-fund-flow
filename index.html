@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A股资金流向仪表盘</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --green-dim: rgba(63,185,80,.15); --red-dim: rgba(248,81,73,.15);
+    --blue-dim: rgba(88,166,255,.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'PingFang SC', sans-serif; font-size: 14px; }
+
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; z-index: 100; }
+  .header h1 { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
+  .header h1 span { color: var(--accent); }
+  .date-selector select { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  .last-updated { font-size: 12px; color: var(--muted); }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } .grid-4 { grid-template-columns: repeat(2,1fr); } }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .section-gap { margin-top: 20px; }
+
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-size: 22px; font-weight: 700; }
+  .stat-value.pos { color: var(--red); }
+  .stat-value.neg { color: var(--green); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; color: var(--muted); font-weight: 600; text-align: right; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child { text-align: left; }
+  td { padding: 9px 12px; border-bottom: 1px solid #21262d; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td:first-child { text-align: left; font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  .chg-pos { color: var(--red); }
+  .chg-neg { color: var(--green); }
+  .val-pos { color: var(--red); font-weight: 600; }
+  .val-neg { color: var(--green); font-weight: 600; }
+  .val-neutral { color: var(--muted); }
+  .rank { color: var(--muted); font-size: 12px; min-width: 24px; }
+  .top-stock { font-size: 12px; color: var(--muted); }
+  .bar-inline { display: inline-block; height: 4px; border-radius: 2px; vertical-align: middle; margin-left: 4px; }
+  .chart-wrap { position: relative; height: 260px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--muted); border: 1px solid transparent; }
+  .tab.active { background: var(--blue-dim); color: var(--accent); border-color: var(--accent); }
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; border-top: 1px solid var(--border); margin-top: 32px; }
+  #loading { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 999; font-size: 16px; color: var(--muted); }
+  #loading.hide { display: none; }
+</style>
+</head>
+<body>
+<div id="loading">加载数据中...</div>
+
+<div class="header">
+  <h1>A股<span>资金流向</span>仪表盘</h1>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="date-selector">
+      <span style="font-size:13px;color:var(--muted)">交易日</span>
+      <select id="dateSelect" onchange="loadData(this.value)"></select>
+    </div>
+    <span class="last-updated" id="lastUpdated"></span>
+  </div>
+</div>
+
+<div class="container">
+  <div id="marketSection" style="display:none">
+    <div class="card-title" style="margin-bottom:12px"><div class="dot"></div> 大盘主力资金（东方财富）</div>
+    <div class="grid-4" id="marketCards"></div>
+    <div class="divider"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><div class="dot" style="background:#f78166"></div> 板块资金（东方财富·超大单/大单/散户细分）</div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchEmTab('inflow',this)">净流入 TOP10</div>
+        <div class="tab" onclick="switchEmTab('outflow',this)">净流出 TOP10</div>
+        <div class="tab" onclick="switchEmTab('all',this)">全部板块</div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="emTable">
+          <thead>
+            <tr>
+              <th>板块</th><th>涨跌幅</th><th>主力净流入</th>
+              <th>超大单</th><th>大单</th><th>散户</th>
+            </tr>
+          </thead>
+          <tbody id="emTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-title"><div class="dot" style="background:#d29922"></div> 板块净流向（同花顺·总体）</div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchThsTab('inflow',this)">流入 TOP10</div>
+          <div class="tab" onclick="switchThsTab('outflow',this)">流出 TOP10</div>
+        </div>
+        <div class="tbl-wrap">
+          <table id="thsTable">
+            <thead>
+              <tr>
+                <th>板块</th><th>涨跌幅</th><th>净额(亿)</th>
+                <th>流入(亿)</th><th>流出(亿)</th><th>领涨股</th>
+              </tr>
+            </thead>
+            <tbody id="thsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="dot" style="background:#3fb950"></div> 板块主力净流入对比（TOP 15）</div>
+        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-gap">
+    <div class="card" style="padding:14px 20px">
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div><span style="color:var(--muted);font-size:12px">超大单（机构/私募）</span> <span style="color:var(--accent)">单笔 &gt;100万</span></div>
+        <div><span style="color:var(--muted);font-size:12px">大单（游资）</span> <span style="color:var(--accent)">单笔 20-100万</span></div>
+        <div><span style="color:var(--muted);font-size:12px">散户（小单）</span> <span style="color:var(--muted)">单笔 &lt;20万 · 红=流入 绿=流出</span></div>
+        <div><span style="color:var(--muted);font-size:12px">北向资金</span> <span style="color:var(--yellow)">⚠ 2026/8/16起停止逐日披露净额</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>数据来源：东方财富 · 同花顺 &nbsp;|&nbsp; 每个交易日15:35自动更新 &nbsp;|&nbsp; 仅供参考，不构成投资建议</footer>
+
+<script>
+// GitHub Pages 静态版：直接读取仓库内的 JSON 数据文件
+// 部署后会自动从 data/dates.json 和 data/data.json 读取
+
+let emData = [], thsData = [], allData = {}, barChart = null;
+let emMode = 'inflow', thsMode = 'inflow';
+
+async function init() {
+  try {
+    const res = await fetch('data/dates.json');
+    const dates = await res.json();
+    const sel = document.getElementById('dateSelect');
+    dates.forEach((d, i) => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.text = d;
+      if (i === 0) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    // 加载全量数据
+    const dataRes = await fetch('data/data.json');
+    allData = await dataRes.json();
+
+    if (dates.length) loadData(dates[0]);
+  } catch(e) {
+    document.getElementById('loading').innerHTML = '数据加载失败，请刷新重试';
+    console.error(e);
+  }
+}
+
+function loadData(d) {
+  const json = allData[d];
+  if (!json) return;
+  emData = json.em_sectors || [];
+  thsData = json.ths_sectors || [];
+  renderMarket(json.market);
+  renderEmTable();
+  renderThsTable();
+  renderChart();
+  document.getElementById('lastUpdated').textContent = '数据日期: ' + d;
+  document.getElementById('loading').classList.add('hide');
+}
+
+function renderMarket(m) {
+  const sec = document.getElementById('marketSection');
+  const cards = document.getElementById('marketCards');
+  if (!m) { sec.style.display='none'; return; }
+  sec.style.display='block';
+  const items = [
+    { label:'主力净流入', val:m.zhuli, sub:'超大单+大单' },
+    { label:'超大单净流入', val:m.chaoda, sub:'机构/私募' },
+    { label:'大单净流入', val:m.dadan, sub:'游资' },
+    { label:'散户净流入', val:m.sanhu, sub:'小单·个人投资者' },
+  ];
+  cards.innerHTML = items.map(x => {
+    const cls = x.val > 0 ? 'pos' : x.val < 0 ? 'neg' : '';
+    const sign = x.val > 0 ? '+' : '';
+    return `<div class="stat-card">
+      <div class="stat-label">${x.label}</div>
+      <div class="stat-value ${cls}">${sign}${x.val.toFixed(2)}<span style="font-size:14px;font-weight:400;color:var(--muted)"> 亿</span></div>
+      <div class="stat-sub">${x.sub}</div>
+    </div>`;
+  }).join('');
+}
+
+function fmt(v) {
+  if (v === null || v === undefined) return '-';
+  const n = parseFloat(v);
+  const sign = n > 0 ? '+' : '';
+  const cls = n > 0 ? 'val-pos' : n < 0 ? 'val-neg' : 'val-neutral';
+  return `<span class="${cls}">${sign}${n.toFixed(2)}</span>`;
+}
+function fmtChg(v) {
+  const n = parseFloat(v);
+  const sign = n > 0 ? '+' : '';
+  const cls = n > 0 ? 'chg-pos' : n < 0 ? 'chg-neg' : '';
+  return `<span class="${cls}">${sign}${n.toFixed(2)}%</span>`;
+}
+
+function renderEmTable() {
+  let rows = [...emData];
+  if (emMode === 'inflow')  rows = rows.filter(r => r.zhuli > 0).slice(0, 10);
+  if (emMode === 'outflow') rows = rows.filter(r => r.zhuli < 0).slice(-10).reverse();
+  const maxV = Math.max(...emData.map(x => Math.abs(x.zhuli || 0)));
+  document.getElementById('emTbody').innerHTML = rows.map((r, i) => {
+    const barW = Math.round(Math.abs(r.zhuli || 0) / maxV * 60);
+    const barColor = (r.zhuli || 0) > 0 ? '#f85149' : '#3fb950';
+    return `<tr>
+      <td><span class="rank">${i+1}</span> ${r.name}
+        <span class="bar-inline" style="width:${barW}px;background:${barColor}"></span>
+      </td>
+      <td>${fmtChg(r.chg)}</td>
+      <td>${fmt(r.zhuli)}</td>
+      <td>${fmt(r.chaoda)}</td>
+      <td>${fmt(r.dadan)}</td>
+      <td>${fmt(r.sanhu)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function switchEmTab(mode, el) {
+  emMode = mode;
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderEmTable();
+}
+
+function renderThsTable() {
+  let rows = [...thsData];
+  if (thsMode === 'inflow')  rows = rows.filter(r => r.net > 0).slice(0, 10);
+  if (thsMode === 'outflow') rows = rows.filter(r => r.net < 0).slice(-10).reverse();
+  document.getElementById('thsTbody').innerHTML = rows.map((r, i) => `<tr>
+    <td><span class="rank">${i+1}</span> ${r.name}</td>
+    <td>${fmtChg(r.chg)}</td>
+    <td>${fmt(r.net)}</td>
+    <td><span style="color:var(--red)">${parseFloat(r.inflow).toFixed(2)}</span></td>
+    <td><span style="color:var(--green)">${parseFloat(r.outflow).toFixed(2)}</span></td>
+    <td class="top-stock">${r.top_stock}<span style="color:var(--muted)"> ${r.top_chg}</span></td>
+  </tr>`).join('');
+}
+
+function switchThsTab(mode, el) {
+  thsMode = mode;
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderThsTable();
+}
+
+function renderChart() {
+  const top15 = [...emData].slice(0, 15);
+  const labels = top15.map(r => r.name);
+  const chaoda = top15.map(r => r.chaoda);
+  const zhuli  = top15.map(r => r.zhuli);
+  const sanhu  = top15.map(r => r.sanhu);
+  const ctx = document.getElementById('barChart').getContext('2d');
+  if (barChart) barChart.destroy();
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'超大单净', data: chaoda, backgroundColor:'rgba(88,166,255,.7)', borderRadius:3 },
+        { label:'大单净',   data: zhuli.map((v,i) => v - chaoda[i]), backgroundColor:'rgba(248,81,73,.6)', borderRadius:3 },
+        { label:'散户净',   data: sanhu, backgroundColor:'rgba(63,185,80,.5)', borderRadius:3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color:'#8b949e', font:{size:11} } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(2)}亿` } }
+      },
+      scales: {
+        x: { stacked:true, ticks:{ color:'#8b949e', font:{size:10} }, grid:{ color:'#21262d' } },
+        y: { stacked:true, ticks:{ color:'#8b949e', callback: v => v+'亿' }, grid:{ color:'#21262d' } }
+      }
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
