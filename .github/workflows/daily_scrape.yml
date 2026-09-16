@@ -22,13 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: 安装依赖
-        run: |
-          pip install playwright py-mini-racer requests
-          playwright install chromium
-          playwright install-deps chromium
-
-      - name: 安装 akshare（获取 ths.js）
-        run: pip install akshare
+        run: pip install curl_cffi py-mini-racer requests akshare yfinance
 
       - name: 运行爬虫
         run: python scraper.py
