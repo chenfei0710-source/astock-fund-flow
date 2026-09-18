@@ -335,14 +335,17 @@ function renderStrategyReview(rv) {
       <span style="font-weight:600;color:${v>=60?'#1a7f37':v>=50?'#9a6700':'#cf222e'}">${v}%</span>
     </div>`).join('');
 
-  // 优化建议
+  // 优化建议（优先使用数据驱动的 tuning_hints，兜底用规则）
   let advice = '';
-  if (rv.strategy_score >= 4) {
-    advice = '策略表现优秀，当前信号组合有效，可维持现有筛选逻辑。';
+  const hints = rv.tuning_hints || [];
+  if (hints.length > 0) {
+    advice = hints.map((h, i) => `${i+1}. ${h}`).join('<br>');
+  } else if (rv.strategy_score >= 4) {
+    advice = '策略表现优秀，信号组合有效，可维持现有筛选逻辑。';
   } else if (rv.strategy_score === 3) {
-    advice = '策略表现中等，建议适当提高主力净流入门槛（≥0.5亿），或增加"均线多头排列"为必选条件。';
+    advice = '策略表现中等，建议提高主力净流入门槛或增加MACD金叉为必选条件。';
   } else {
-    advice = '策略胜率偏低，建议：①缩小涨幅区间至1%-5%，②MACD金叉+0轴上方设为必选，③放倍量作为加分项而非必须。';
+    advice = '策略胜率偏低，已于下次运行自动调整评分权重（MACD金叉提权，0轴上方/放倍量降权）。';
   }
 
   // 个股复盘表

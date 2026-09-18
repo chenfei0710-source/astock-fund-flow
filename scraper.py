@@ -458,22 +458,37 @@ def compute_technicals(closes, volumes, opens=None):
             if closes[-1] > avg10:
                 pullback_10d = 1
 
-    # ── 评分（0-8分，映射到0-5展示）──
+    # ── 评分 v2（基于复盘信号命中率重新校准，满分10分）──
+    # 复盘实证：MACD金叉命中率71%（最强），均线多头30%/0轴上25%/放倍量0%（负效应）
     score = 0
-    if ma_align:              score += 2   # 均线多头排列
-    if macd_signal == 'golden': score += 1 # MACD金叉
-    if macd_signal == 'death':  score -= 1 # MACD死叉
-    if macd_above_zero:       score += 1   # MACD在0轴上方
-    if 35 <= rsi <= 65:       score += 1   # RSI健康区间
-    if rsi > 75:              score -= 1   # RSI超买
-    if vol_2x:                score += 2   # 放倍量
-    elif vol_ratio > 1.5:     score += 1   # 温和放量
-    if yang_cross_count >= 2: score += 2   # 阳线穿越2条以上均线
-    elif yang_cross_count == 1: score += 1 # 阳线穿越1条均线
-    if pullback_10d:          score += 1   # 10天调整后反弹
-    score = max(0, min(8, score))
+
+    # MACD 金叉：最强信号，权重提至+4；死叉强力惩罚
+    if macd_signal == 'golden': score += 4
+    if macd_signal == 'death':  score -= 3
+
+    # MACD 0轴：复盘命中率仅25%，改为负向调整
+    if macd_above_zero:         score -= 1
+
+    # 均线多头排列：命中率仅31%，降权重至+1
+    if ma_align:                score += 1
+
+    # RSI：健康区间40-70（收紧），超买强力惩罚
+    if 40 <= rsi <= 70:         score += 1
+    if rsi > 75:                score -= 2
+
+    # 量比：放倍量命中率0%，去掉；温和放量（1.2-2.5x）保留+1
+    if 1.2 <= vol_ratio <= 2.5: score += 1
+
+    # 阳线穿均线：命中率36%，保留但减小权重
+    if yang_cross_count >= 2:   score += 2
+    elif yang_cross_count == 1: score += 1
+
+    # 10日回调反弹：命中率37.5%，保留
+    if pullback_10d:             score += 1
+
+    score = max(0, min(10, score))
     # 映射到0-5
-    score5 = round(score / 8 * 5)
+    score5 = round(score / 10 * 5)
 
     signal = '强烈关注' if score5 >= 4 else ('值得关注' if score5 >= 2 else '观望')
 
@@ -631,7 +646,8 @@ async def fetch_all_stocks_and_screen(trade_date):
         price_map_from_spot[code] = close
 
         if name != code and 'ST' in name.upper(): continue  # 有名称才过滤ST
-        if 0.5 <= chg <= 7.0:
+        # v2：涨幅收紧至1%~6%（去掉微涨和追高区间）
+        if 1.0 <= chg <= 6.0:
             candidates.append({
                 'code': code, 'name': name,
                 'price': round(close, 2), 'chg': round(chg, 2), 'zhuli': 0.0,
@@ -639,8 +655,8 @@ async def fetch_all_stocks_and_screen(trade_date):
             })
 
     candidates.sort(key=lambda x: x['chg'], reverse=True)
-    candidates = candidates[:120]
-    print(f"[全市场扫描] 初筛 {len(candidates)} 只（涨 0.5%~7%，非ST）")
+    candidates = candidates[:100]
+    print(f"[全市场扫描] 初筛 {len(candidates)} 只（涨 1%~6%，非ST）")
 
     # ── 技术面评分 ──
     scored = []
@@ -648,16 +664,19 @@ async def fetch_all_stocks_and_screen(trade_date):
         closes = s.pop('closes'); opens = s.pop('opens'); volumes = s.pop('volumes')
         tech = compute_technicals(closes, volumes, opens) if len(closes) >= 20 else None
         if tech is None: continue
+        # v2：排除死叉股（score5=0时 signal='观望' 已过滤，但死叉可能score仍>0）
+        if tech.get('macd_signal') == 'death':
+            continue
         scored.append({**s, 'sector': '全市场精选', **tech})
 
     scored.sort(key=lambda x: (x['score'], x['chg']), reverse=True)
-    top20 = scored[:20]
+    top15 = scored[:15]
 
-    print(f"[全市场扫描] 评分完成，TOP20：")
-    for i, s in enumerate(top20, 1):
+    print(f"[全市场扫描] 评分完成，TOP15：")
+    for i, s in enumerate(top15, 1):
         print(f"  {i:2d}. {s['name']}({s['code']}) 评分:{s['score']}/5 涨:{s['chg']:+.2f}% {s['signal']}")
 
-    return [{'sector': '全市场精选', 'stocks': top20}], price_map_from_spot
+    return [{'sector': '全市场精选', 'stocks': top15}], price_map_from_spot
 
 def save_stock_reco(reco_list, trade_date):
     if not reco_list:
@@ -799,6 +818,16 @@ def run_strategy_review(trade_date, today_price_map):
 
     print(f"[复盘] {prev_date} 推荐 {total} 只 → 上涨 {up_count} 只 | 胜率 {win_rate*100:.0f}% | 均涨 {avg_gain:+.2f}%")
 
+    # 自动生成信号调优建议（写入 detail_json 供前端展示）
+    tuning_hints = []
+    for sig, rate in signal_stats.items():
+        if rate is None:
+            continue
+        if rate >= 65:
+            tuning_hints.append(f"{sig} 命中率{rate:.0f}%，表现优异，建议提高权重")
+        elif rate < 40:
+            tuning_hints.append(f"{sig} 命中率{rate:.0f}%，低于基准，建议降低权重或剔除")
+
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
         INSERT OR REPLACE INTO strategy_review
@@ -808,11 +837,17 @@ def run_strategy_review(trade_date, today_price_map):
     """, (
         trade_date, prev_date, total, up_count, round(win_rate, 4),
         round(avg_gain, 3), round(max_gain, 3), round(max_loss, 3),
-        strat_score, json.dumps({'detail': detail, 'signal_stats': signal_stats}, ensure_ascii=False)
+        strat_score, json.dumps({
+            'detail': detail,
+            'signal_stats': signal_stats,
+            'tuning_hints': tuning_hints,
+        }, ensure_ascii=False)
     ))
     conn.commit()
     conn.close()
     print(f"[复盘] 策略评分 {strat_score}/5，信号命中率: {signal_stats}")
+    if tuning_hints:
+        print(f"[复盘] 调优建议: {tuning_hints}")
 
 # ── 主流程 ─────────────────────────────────────────────────
 async def main():
