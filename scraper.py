@@ -715,17 +715,27 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
     stock_codes = {}   # code -> name
     print("[全市场扫描] 获取 A 股代码列表...")
 
-    # ── 主源：东方财富全市场快照（沪深全覆盖，含名称，境外 IP 可访问）──
+    # ── 主源：东方财富全市场快照（沪深全覆盖，含名称+市盈率，境外 IP 可访问）──
+    deficit_codes = set()   # 赤字（净利润<0）股票代码，PE<0即为亏损
     try:
         df_spot = ak.stock_zh_a_spot_em()
         code_col = next((c for c in df_spot.columns if '代码' in c), '代码')
         name_col = next((c for c in df_spot.columns if '名称' in c), '名称')
+        pe_col   = next((c for c in df_spot.columns if '市盈率' in c), None)
         for _, row in df_spot.iterrows():
             code = str(row[code_col]).zfill(6)
             name = str(row[name_col]) if name_col in df_spot.columns else ''
             if len(code) == 6 and name not in ('', 'nan'):
                 stock_codes[code] = name
-        print(f"[全市场扫描] 东方财富快照: {len(stock_codes)} 只（含名称）")
+            # PE < 0 = 净利润为负 = 赤字，列入排除名单
+            if pe_col and len(code) == 6:
+                try:
+                    pe = float(row[pe_col])
+                    if pe < 0:
+                        deficit_codes.add(code)
+                except (ValueError, TypeError):
+                    pass
+        print(f"[全市场扫描] 东方财富快照: {len(stock_codes)} 只（含名称），赤字公司 {len(deficit_codes)} 只已标记")
     except Exception as e:
         print(f"[全市场扫描] 东方财富快照失败，降级到交易所接口: {e}")
 
@@ -872,7 +882,8 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
         chg = (close - prev) / prev * 100
         price_map_from_spot[code] = close
 
-        if name != code and 'ST' in name.upper(): continue  # 有名称才过滤ST
+        if name != code and 'ST' in name.upper(): continue  # 过滤ST
+        if code in deficit_codes: continue                  # 过滤赤字（PE<0，净利润亏损）
         # v2：涨幅收紧至1%~6%（去掉微涨和追高区间）
         if 1.0 <= chg <= 6.0:
             zhuli = ths_stock_map.get(code, 0.0)  # THS 主力净流入（亿），无则0
