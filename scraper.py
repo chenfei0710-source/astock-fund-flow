@@ -662,10 +662,25 @@ def compute_adaptive_weights_from_history():
     except Exception as e:
         print(f"[自适应权重] 写入失败: {e}")
 
-async def fetch_all_stocks_and_screen(trade_date):
+def parse_ths_stock_map(raw_rows):
+    """将 fetch_ths_stock_flow 原始行解析为 {code: zhuli_net_亿}"""
+    result = {}
+    for row in raw_rows:
+        try:
+            # THS 个股资金流向列：[序号, 代码, 名称, 最新价, 涨跌幅, 主力净流入(万), ...]
+            code = str(row[1]).strip().zfill(6)
+            zhuli_wan = float(str(row[5]).replace(',', '').replace('--', '0') or 0)
+            result[code] = round(zhuli_wan / 10000, 2)  # 万 → 亿
+        except Exception:
+            continue
+    return result
+
+async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
     """
-    全市场扫描（沪深两市）：自适应权重 + 市场环境感知
+    全市场扫描（沪深两市）：自适应权重 + 市场环境感知 + THS个股资金佐证
     """
+    if ths_stock_map is None:
+        ths_stock_map = {}
     import akshare as ak
     import yfinance as yf
     import pandas as pd
@@ -697,54 +712,72 @@ async def fetch_all_stocks_and_screen(trade_date):
     except Exception as e:
         print(f"[市场感知] 读取失败，使用中性: {e}")
 
-    stock_codes = {}   # code -> name（无名则空字符串）
+    stock_codes = {}   # code -> name
     print("[全市场扫描] 获取 A 股代码列表...")
 
-    # ── 上交所（akshare，稳定）──
+    # ── 主源：东方财富全市场快照（沪深全覆盖，含名称，境外 IP 可访问）──
     try:
-        df_sh = ak.stock_info_sh_name_code()
-        code_col = next((c for c in df_sh.columns if '代码' in c or 'code' in c.lower()), df_sh.columns[0])
-        name_col = next((c for c in df_sh.columns if '简称' in c), None)
-        for _, row in df_sh.iterrows():
+        df_spot = ak.stock_zh_a_spot_em()
+        code_col = next((c for c in df_spot.columns if '代码' in c), '代码')
+        name_col = next((c for c in df_spot.columns if '名称' in c), '名称')
+        for _, row in df_spot.iterrows():
             code = str(row[code_col]).zfill(6)
-            name = str(row[name_col]) if name_col else ''
-            if len(code) == 6:
+            name = str(row[name_col]) if name_col in df_spot.columns else ''
+            if len(code) == 6 and name not in ('', 'nan'):
                 stock_codes[code] = name
-        print(f"[全市场扫描] 上交所: {len(df_sh)} 只（含名称）")
+        print(f"[全市场扫描] 东方财富快照: {len(stock_codes)} 只（含名称）")
     except Exception as e:
-        print(f"[全市场扫描] 上交所失败: {e}")
+        print(f"[全市场扫描] 东方财富快照失败，降级到交易所接口: {e}")
 
-    # ── 深交所名称（尝试，失败后用代码代替）──
-    sz_name_map = {}
-    try:
-        df_sz = ak.stock_info_sz_name_code()
-        code_col = next((c for c in df_sz.columns if '代码' in c), df_sz.columns[0])
-        name_col = next((c for c in df_sz.columns if '简称' in c or '名称' in c), None)
-        for _, row in df_sz.iterrows():
-            code = str(row[code_col]).zfill(6)
-            name = str(row[name_col]) if name_col else ''
-            if len(code) == 6:
-                sz_name_map[code] = name
-        print(f"[全市场扫描] 深交所 akshare: {len(sz_name_map)} 只（含名称）")
-    except Exception as e:
-        print(f"[全市场扫描] 深交所 akshare 失败（按代码规律覆盖）: {e}")
+        # ── 备源1：上交所 ──
+        try:
+            df_sh = ak.stock_info_sh_name_code()
+            code_col = next((c for c in df_sh.columns if '代码' in c or 'code' in c.lower()), df_sh.columns[0])
+            name_col = next((c for c in df_sh.columns if '简称' in c), None)
+            for _, row in df_sh.iterrows():
+                code = str(row[code_col]).zfill(6)
+                name = str(row[name_col]) if name_col else ''
+                if len(code) == 6:
+                    stock_codes[code] = name
+            print(f"[全市场扫描] 上交所备源: {len(stock_codes)} 只")
+        except Exception as e2:
+            print(f"[全市场扫描] 上交所失败: {e2}")
 
-    # ── 深交所代码规律生成（无需网络，100% 可用）──
+        # ── 备源2：深交所 ──
+        sz_name_map = {}
+        try:
+            df_sz = ak.stock_info_sz_name_code()
+            code_col = next((c for c in df_sz.columns if '代码' in c), df_sz.columns[0])
+            name_col = next((c for c in df_sz.columns if '简称' in c or '名称' in c), None)
+            for _, row in df_sz.iterrows():
+                code = str(row[code_col]).zfill(6)
+                name = str(row[name_col]) if name_col else ''
+                if len(code) == 6:
+                    sz_name_map[code] = name
+            print(f"[全市场扫描] 深交所备源: {len(sz_name_map)} 只")
+        except Exception as e3:
+            print(f"[全市场扫描] 深交所失败: {e3}")
+
+        for code, name in sz_name_map.items():
+            if code not in stock_codes:
+                stock_codes[code] = name
+
+    # ── 兜底：代码规律生成深交所缺失的代码（保证覆盖率）──
     sz_ranges = (
-        list(range(1,    1000))   # 000001-000999  沪深主板深圳
-        + list(range(1001, 2000)) # 001001-001999
-        + list(range(2001, 3000)) # 002001-002999  中小板
-        + list(range(3001, 3200)) # 003001-003199  注册制新增
-        + list(range(300001, 301000)) # 300001-300999 创业板
-        + list(range(301001, 301600)) # 301001-301599 创业板注册制
+        list(range(1,    1000))
+        + list(range(1001, 2000))
+        + list(range(2001, 3000))
+        + list(range(3001, 3200))
+        + list(range(300001, 301000))
+        + list(range(301001, 301600))
     )
     sz_added = 0
     for n in sz_ranges:
         code = f"{n:06d}"
         if code not in stock_codes:
-            stock_codes[code] = sz_name_map.get(code, '')
+            stock_codes[code] = ''
             sz_added += 1
-    print(f"[全市场扫描] 深交所代码规律补充: {sz_added} 个，合计 {len(stock_codes)} 只")
+    print(f"[全市场扫描] 代码规律补充 {sz_added} 个（无名称），合计 {len(stock_codes)} 只")
 
     # ── 过滤纯 A 股（排除 ETF/债券）──
     def is_a_share(code):
@@ -829,9 +862,10 @@ async def fetch_all_stocks_and_screen(trade_date):
         if name != code and 'ST' in name.upper(): continue  # 有名称才过滤ST
         # v2：涨幅收紧至1%~6%（去掉微涨和追高区间）
         if 1.0 <= chg <= 6.0:
+            zhuli = ths_stock_map.get(code, 0.0)  # THS 主力净流入（亿），无则0
             candidates.append({
                 'code': code, 'name': name,
-                'price': round(close, 2), 'chg': round(chg, 2), 'zhuli': 0.0,
+                'price': round(close, 2), 'chg': round(chg, 2), 'zhuli': zhuli,
                 'closes': closes, 'opens': opens, 'volumes': volumes,
             })
 
@@ -849,10 +883,12 @@ async def fetch_all_stocks_and_screen(trade_date):
         if tech.get('score', 0) < min_score_threshold: continue  # 市场环境门槛过滤
         scored.append({**s, 'sector': '全市场精选', 'market_regime': market_regime, **tech})
 
-    scored.sort(key=lambda x: (x['score'], x['chg']), reverse=True)
+    # 排序：评分优先，同分时 THS主力净流入 > 涨幅
+    scored.sort(key=lambda x: (x['score'], x.get('zhuli', 0.0), x['chg']), reverse=True)
     top15 = scored[:15]
 
-    print(f"[全市场扫描] 评分完成，市场模式={market_regime}，门槛={min_score_threshold}/5，推荐{len(top15)}只：")
+    ths_hit = sum(1 for s in top15 if s.get('zhuli', 0) > 0)
+    print(f"[全市场扫描] 评分完成，市场模式={market_regime}，门槛={min_score_threshold}/5，推荐{len(top15)}只（其中{ths_hit}只有THS资金佐证）：")
     for i, s in enumerate(top15, 1):
         print(f"  {i:2d}. {s['name']}({s['code']}) 评分:{s['score']}/5 涨:{s['chg']:+.2f}% {s['signal']}")
 
@@ -1053,10 +1089,19 @@ async def main():
     except Exception as e:
         print(f"[同花顺] 失败: {e}")
 
+    print("── Step 3.5: 同花顺个股资金流向（主力净流入佐证）──")
+    ths_stock_map = {}
+    try:
+        ths_raw = fetch_ths_stock_flow(pages=10)  # 约300只，覆盖主力流入主力股
+        ths_stock_map = parse_ths_stock_map(ths_raw)
+        print(f"[同花顺个股] 解析完成，共 {len(ths_stock_map)} 只有效个股资金数据")
+    except Exception as e:
+        print(f"[同花顺个股] 失败（不影响选股，zhuli 将显示为0）: {e}")
+
     print("── Step 4: 全市场个股扫描（资金+技术面精选 TOP20）──")
     price_map = {}
     try:
-        reco, price_map = await fetch_all_stocks_and_screen(trade_date)
+        reco, price_map = await fetch_all_stocks_and_screen(trade_date, ths_stock_map)
         save_stock_reco(reco, trade_date)
     except Exception as e:
         print(f"[全市场扫描] 失败: {e}")
