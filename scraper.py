@@ -102,14 +102,66 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ── 东方财富板块（akshare）──────────────────────────────
+# ── 东方财富板块（curl_cffi 直连 → akshare 备用）──────────────
 def fetch_em_sector_flow(trade_date):
-    print(f"[东方财富] 使用 akshare 获取板块资金流向...")
+    # 方案1：curl_cffi 直连 push2 API（Chrome TLS 指纹，绕过封锁）
+    items = _fetch_em_sector_curl()
+    if items:
+        return items
+    # 方案2：akshare fallback
+    return _fetch_em_sector_akshare()
+
+def _fetch_em_sector_curl():
+    """curl_cffi 直连东方财富 push2 板块资金 API"""
+    if not CURL_AVAILABLE:
+        return []
+    print(f"[东方财富] curl_cffi 直连 push2 API...")
+    try:
+        api_url = (
+            "https://push2.eastmoney.com/api/qt/clist/get"
+            "?pn=1&pz=200&po=1&np=1"
+            "&ut=bd1d9ddb04089700cf9c27f6f7426281"
+            "&fltt=2&invt=2&fid=f62"
+            "&fs=m:90+t:2+f:!50"
+            "&fields=f12,f14,f2,f3,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87"
+        )
+        resp = curl_requests.get(api_url, headers={
+            'Referer': 'https://data.eastmoney.com/zjlx/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        }, impersonate='chrome120', timeout=20)
+        if resp.status_code != 200 or not resp.text.strip():
+            print(f"[东方财富] curl_cffi 响应异常: {resp.status_code}")
+            return []
+        result = resp.json()
+        raw = result.get('data', {}).get('diff', [])
+        if not raw:
+            print(f"[东方财富] curl_cffi 返回空数据")
+            return []
+        items = []
+        for item in raw:
+            items.append({
+                'f12': item.get('f12', ''),
+                'f14': str(item.get('f14', '')),
+                'f3':  safe_float(item.get('f3')),
+                'f62': safe_float(item.get('f62')),   # 原始单位：元
+                'f66': safe_float(item.get('f66')),
+                'f72': safe_float(item.get('f72')),
+                'f78': safe_float(item.get('f78')),
+                'f84': safe_float(item.get('f84')),
+                'f184': safe_float(item.get('f184')),
+                '_pre_converted': False,   # 需要 yi() 转换
+            })
+        print(f"[东方财富] curl_cffi 获取 {len(items)} 个板块")
+        return items
+    except Exception as e:
+        print(f"[东方财富] curl_cffi 失败: {e}")
+        return []
+
+def _fetch_em_sector_akshare():
+    print(f"[东方财富] akshare fallback 获取板块资金流向...")
     try:
         import akshare as ak
         df = ak.stock_sector_fund_flow_rank(indicator="今日")
-        # 列名：名称, 今日涨跌幅, 主力净流入-净额(万), 主力净流入-净占比,
-        #       超大单净流入-净额(万), ..., 大单净流入-净额(万), 中单净流入-净额(万), 小单净流入-净额(万)
         items = []
         for _, row in df.iterrows():
             def wan2yi(v):
@@ -119,13 +171,13 @@ def fetch_em_sector_flow(trade_date):
                 'f12': '',
                 'f14': str(row.get('名称', '')),
                 'f3':  safe_float(row.get('今日涨跌幅', 0)),
-                'f62': wan2yi(row.get('主力净流入-净额', 0)),   # 已转成亿，跳过 yi()
+                'f62': wan2yi(row.get('主力净流入-净额', 0)),
                 'f66': wan2yi(row.get('超大单净流入-净额', 0)),
                 'f72': wan2yi(row.get('大单净流入-净额', 0)),
                 'f78': wan2yi(row.get('中单净流入-净额', 0)),
                 'f84': wan2yi(row.get('小单净流入-净额', 0)),
                 'f184': safe_float(row.get('主力净流入-净占比', 0)),
-                '_pre_converted': True,   # 标记已转换，save 函数跳过 yi()
+                '_pre_converted': True,
             })
         print(f"[东方财富] akshare 获取 {len(items)} 个板块")
         return items
