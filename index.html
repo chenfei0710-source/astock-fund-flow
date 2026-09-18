@@ -86,11 +86,41 @@
     <div class="divider"></div>
   </div>
 
+  <!-- 主板块：同花顺（稳定，关机也能更新）全宽展示 -->
   <div class="grid-2">
-    <!-- 左：东方财富板块 净流入+净流出平铺 -->
     <div class="card">
-      <div class="card-title"><div class="dot" style="background:#f78166"></div> 板块资金（东方财富·超大单/大单/散户细分）</div>
+      <div class="card-title"><div class="dot" style="background:#d29922"></div> 板块净流向（同花顺·行业资金）</div>
+      <div style="font-size:11px;font-weight:600;color:var(--red);letter-spacing:.5px;margin-bottom:8px">▲ 净流入 TOP10</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>板块</th><th>涨跌幅</th><th>净额(亿)</th><th>流入(亿)</th><th>流出(亿)</th><th>领涨股</th>
+          </tr></thead>
+          <tbody id="thsInflowTbody"></tbody>
+        </table>
+      </div>
+      <div style="height:1px;background:var(--border);margin:16px 0"></div>
+      <div style="font-size:11px;font-weight:600;color:var(--green);letter-spacing:.5px;margin-bottom:8px">▼ 净流出 TOP10</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>板块</th><th>涨跌幅</th><th>净额(亿)</th><th>流入(亿)</th><th>流出(亿)</th><th>领涨股</th>
+          </tr></thead>
+          <tbody id="thsOutflowTbody"></tbody>
+        </table>
+      </div>
+    </div>
 
+    <div class="card">
+      <div class="card-title"><div class="dot" style="background:#3fb950"></div> 板块净流入对比（TOP 15）</div>
+      <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 可选补充：东方财富超大单/大单细分（有则展示，无则隐藏）-->
+  <div class="section-gap" id="emSection" style="display:none">
+    <div class="card">
+      <div class="card-title"><div class="dot" style="background:#f78166"></div> 板块资金细分（东方财富·超大单/大单/散户）</div>
       <div style="font-size:11px;font-weight:600;color:var(--red);letter-spacing:.5px;margin-bottom:8px">▲ 净流入 TOP10</div>
       <div class="tbl-wrap">
         <table>
@@ -100,9 +130,7 @@
           <tbody id="emInflowTbody"></tbody>
         </table>
       </div>
-
       <div style="height:1px;background:var(--border);margin:16px 0"></div>
-
       <div style="font-size:11px;font-weight:600;color:var(--green);letter-spacing:.5px;margin-bottom:8px">▼ 净流出 TOP10</div>
       <div class="tbl-wrap">
         <table>
@@ -111,40 +139,6 @@
           </tr></thead>
           <tbody id="emOutflowTbody"></tbody>
         </table>
-      </div>
-    </div>
-
-    <!-- 右：同花顺板块 净流入+净流出平铺 + 图表 -->
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card">
-        <div class="card-title"><div class="dot" style="background:#d29922"></div> 板块净流向（同花顺·总体）</div>
-
-        <div style="font-size:11px;font-weight:600;color:var(--red);letter-spacing:.5px;margin-bottom:8px">▲ 净流入 TOP10</div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr>
-              <th>板块</th><th>涨跌幅</th><th>净额(亿)</th><th>流入(亿)</th><th>流出(亿)</th><th>领涨股</th>
-            </tr></thead>
-            <tbody id="thsInflowTbody"></tbody>
-          </table>
-        </div>
-
-        <div style="height:1px;background:var(--border);margin:16px 0"></div>
-
-        <div style="font-size:11px;font-weight:600;color:var(--green);letter-spacing:.5px;margin-bottom:8px">▼ 净流出 TOP10</div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr>
-              <th>板块</th><th>涨跌幅</th><th>净额(亿)</th><th>流入(亿)</th><th>流出(亿)</th><th>领涨股</th>
-            </tr></thead>
-            <tbody id="thsOutflowTbody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title"><div class="dot" style="background:#3fb950"></div> 板块主力净流入对比（TOP 15）</div>
-        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
       </div>
     </div>
   </div>
@@ -185,7 +179,7 @@
   </div>
 </div>
 
-<footer>数据来源：东方财富 · 同花顺 &nbsp;|&nbsp; 每个交易日15:35自动更新 &nbsp;|&nbsp; 仅供参考，不构成投资建议</footer>
+<footer>数据来源：同花顺（主） · 东方财富（补充） &nbsp;|&nbsp; 每个交易日15:35自动更新 &nbsp;|&nbsp; 仅供参考，不构成投资建议</footer>
 
 <script>
 // GitHub Pages 静态版：直接读取仓库内的 JSON 数据文件
@@ -223,6 +217,7 @@ function loadData(d) {
   thsData = json.ths_sectors || [];
   renderMarket(json.market);
   renderEmTable();
+  document.getElementById('emSection').style.display = emData.length > 0 ? 'block' : 'none';
   renderThsTable();
   renderStockReco(json.stock_reco);
   renderStrategyReview(json.strategy_review);
@@ -486,16 +481,19 @@ function renderStockReco(stocks) {
 }
 
 function renderAnalysis() {
-  const inflow  = emData.filter(r => r.zhuli > 0);
-  const outflow = emData.filter(r => r.zhuli < 0);
+  // 优先使用同花顺数据（稳定，关机也能更新）
+  const src = thsData.length > 0 ? thsData : emData;
+  const netField = thsData.length > 0 ? 'net' : 'zhuli';
+
+  const inflow  = src.filter(r => (r[netField] || 0) > 0);
+  const outflow = src.filter(r => (r[netField] || 0) < 0);
   const top3in  = inflow.slice(0, 3);
   const top3out = outflow.slice(-3).reverse();
 
-  const totalIn  = inflow.reduce((s, r) => s + (r.zhuli || 0), 0);
-  const totalOut = outflow.reduce((s, r) => s + (r.zhuli || 0), 0);
-  const netTotal = totalIn + totalOut;
+  const netTotal = src.reduce((s, r) => s + (r[netField] || 0), 0);
+  const totalInflowAmt  = src.reduce((s, r) => s + (r.inflow || r.chaoda || 0), 0);
+  const totalOutflowAmt = src.reduce((s, r) => s + Math.abs(r.outflow || r.sanhu || 0), 0);
 
-  // 判断市场整体情绪
   let sentiment, sentimentColor, advice;
   const inflowSectors = inflow.length;
   const outflowSectors = outflow.length;
@@ -504,15 +502,15 @@ function renderAnalysis() {
   if (netTotal > 50 && ratio > 0.6) {
     sentiment = '强势流入';
     sentimentColor = 'var(--red)';
-    advice = '主力资金呈整体净流入态势，市场人气较旺。重点关注连续流入板块，可适当加仓相关龙头。注意高位超买风险，设好止损。';
+    advice = '行业资金呈整体净流入态势，市场人气较旺。重点关注连续流入板块，可适当加仓相关龙头。注意高位超买风险，设好止损。';
   } else if (netTotal > 0 && ratio > 0.5) {
     sentiment = '温和流入';
     sentimentColor = '#f0883e';
-    advice = '资金整体小幅净流入，市场情绪偏乐观但分歧较大。建议跟随主力流入方向，优先选择超大单与大单共振的板块，轻仓试探。';
+    advice = '资金整体小幅净流入，市场情绪偏乐观但分歧较大。建议跟随主力流入方向，优先选择净流入持续的行业，轻仓试探。';
   } else if (netTotal < -50 && ratio < 0.4) {
     sentiment = '明显流出';
     sentimentColor = 'var(--green)';
-    advice = '主力资金净流出明显，市场整体偏弱。建议降低仓位，回避资金持续流出板块，保留现金等待企稳信号。';
+    advice = '行业资金净流出明显，市场整体偏弱。建议降低仓位，回避资金持续流出板块，保留现金等待企稳信号。';
   } else if (netTotal < 0) {
     sentiment = '小幅流出';
     sentimentColor = '#3fb950';
@@ -523,18 +521,10 @@ function renderAnalysis() {
     advice = '资金流入流出较为均衡，市场方向不明。建议保持仓位，不追高也不轻易减仓，静观市场选择方向。';
   }
 
-  // 超大单 vs 散户对比
-  const chaoIn  = inflow.reduce((s, r) => s + (r.chaoda || 0), 0);
-  const sanhuNet = emData.reduce((s, r) => s + (r.sanhu || 0), 0);
-  let smartMoneyTip = '';
-  if (chaoIn > 30 && sanhuNet < 0) {
-    smartMoneyTip = '<br><span style="color:var(--accent)">📌 机构/主力资金流入，散户净流出——机构与散户分歧明显，通常是较好的介入信号。</span>';
-  } else if (chaoIn < 0 && sanhuNet > 0) {
-    smartMoneyTip = '<br><span style="color:var(--yellow)">⚠️ 超大单净流出，散户净流入——主力出货迹象，建议谨慎追涨。</span>';
-  }
+  const top3inStr  = top3in.map(r => `<span style="color:var(--red)">${r.name}(${(r[netField]||0)>0?'+':''}${(r[netField]||0).toFixed(1)}亿)</span>`).join('、') || '-';
+  const top3outStr = top3out.map(r => `<span style="color:var(--green)">${r.name}(${(r[netField]||0).toFixed(1)}亿)</span>`).join('、') || '-';
 
-  const top3inStr  = top3in.map(r => `<span style="color:var(--red)">${r.name}(${r.zhuli > 0 ? '+' : ''}${r.zhuli.toFixed(1)}亿)</span>`).join('、') || '-';
-  const top3outStr = top3out.map(r => `<span style="color:var(--green)">${r.name}(${r.zhuli.toFixed(1)}亿)</span>`).join('、') || '-';
+  const srcLabel = thsData.length > 0 ? '同花顺行业资金' : '东方财富板块';
 
   document.getElementById('analysisContent').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
@@ -548,33 +538,38 @@ function renderAnalysis() {
         <div style="font-size:18px;font-weight:700;color:${netTotal>=0?'var(--red)':'var(--green)'}">
           ${netTotal>=0?'+':''}${netTotal.toFixed(1)}<span style="font-size:13px;font-weight:400;color:var(--muted)"> 亿</span>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">超大单合计 ${chaoIn>=0?'+':''}${chaoIn.toFixed(1)} 亿</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">数据来源：${srcLabel}</div>
       </div>
       <div style="background:var(--bg);border-radius:8px;padding:12px 14px">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">散户资金合计</div>
-        <div style="font-size:18px;font-weight:700;color:${sanhuNet>=0?'var(--red)':'var(--green)'}">
-          ${sanhuNet>=0?'+':''}${sanhuNet.toFixed(1)}<span style="font-size:13px;font-weight:400;color:var(--muted)"> 亿</span>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">总流入 / 总流出</div>
+        <div style="font-size:16px;font-weight:700">
+          <span style="color:var(--red)">+${totalInflowAmt.toFixed(1)}</span>
+          <span style="color:var(--muted);font-size:13px"> / </span>
+          <span style="color:var(--green)">-${totalOutflowAmt.toFixed(1)}</span>
+          <span style="font-size:12px;font-weight:400;color:var(--muted)"> 亿</span>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">小单净${sanhuNet>=0?'流入':'流出'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">各行业资金进出合计</div>
       </div>
     </div>
     <div style="background:var(--bg);border-radius:8px;padding:14px 16px;margin-bottom:12px;font-size:13px">
-      <div style="margin-bottom:6px"><span style="color:var(--muted)">主力流入领涨：</span>${top3inStr}</div>
-      <div><span style="color:var(--muted)">主力流出领跌：</span>${top3outStr}</div>
+      <div style="margin-bottom:6px"><span style="color:var(--muted)">净流入前三：</span>${top3inStr}</div>
+      <div><span style="color:var(--muted)">净流出前三：</span>${top3outStr}</div>
     </div>
     <div style="background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.2);border-radius:8px;padding:14px 16px;font-size:13px">
-      <span style="color:var(--accent);font-weight:600">操作建议：</span>${advice}${smartMoneyTip}
+      <span style="color:var(--accent);font-weight:600">操作建议：</span>${advice}
       <div style="margin-top:8px;font-size:11px;color:var(--muted)">⚠ 以上分析基于当日资金流向数据自动生成，仅供参考，不构成投资建议。</div>
     </div>
   `;
 }
 
 function renderChart() {
-  const top15 = [...emData].slice(0, 15);
+  // 优先用同花顺数据绘图（稳定），无则降级到东方财富
+  const src = thsData.length > 0 ? thsData : emData;
+  const netField = thsData.length > 0 ? 'net' : 'zhuli';
+  const top15 = [...src].sort((a, b) => (b[netField] || 0) - (a[netField] || 0)).slice(0, 15);
   const labels = top15.map(r => r.name);
-  const chaoda = top15.map(r => r.chaoda);
-  const zhuli  = top15.map(r => r.zhuli);
-  const sanhu  = top15.map(r => r.sanhu);
+  const nets   = top15.map(r => r[netField] || 0);
+  const colors = nets.map(v => v > 0 ? 'rgba(248,81,73,.75)' : 'rgba(63,185,80,.7)');
   const ctx = document.getElementById('barChart').getContext('2d');
   if (barChart) barChart.destroy();
   barChart = new Chart(ctx, {
@@ -582,20 +577,18 @@ function renderChart() {
     data: {
       labels,
       datasets: [
-        { label:'超大单净', data: chaoda, backgroundColor:'rgba(88,166,255,.7)', borderRadius:3 },
-        { label:'大单净',   data: zhuli.map((v,i) => v - chaoda[i]), backgroundColor:'rgba(248,81,73,.6)', borderRadius:3 },
-        { label:'散户净',   data: sanhu, backgroundColor:'rgba(63,185,80,.5)', borderRadius:3 },
+        { label:'净流入(亿)', data: nets, backgroundColor: colors, borderRadius: 3 },
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { labels: { color:'#656d76', font:{size:11} } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(2)}亿` } }
+        tooltip: { callbacks: { label: ctx => ` 净流: ${ctx.raw.toFixed(2)}亿` } }
       },
       scales: {
-        x: { stacked:true, ticks:{ color:'#656d76', font:{size:10} }, grid:{ color:'#d0d7de' } },
-        y: { stacked:true, ticks:{ color:'#656d76', callback: v => v+'亿' }, grid:{ color:'#d0d7de' } }
+        x: { ticks:{ color:'#656d76', font:{size:10} }, grid:{ color:'#d0d7de' } },
+        y: { ticks:{ color:'#656d76', callback: v => v+'亿' }, grid:{ color:'#d0d7de' } }
       }
     }
   });

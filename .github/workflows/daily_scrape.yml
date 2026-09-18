@@ -35,15 +35,16 @@ jobs:
           from datetime import date
           today = date.today().strftime('%Y-%m-%d')
           conn = sqlite3.connect('fund_flow.db')
-          em_count = conn.execute("SELECT COUNT(*) FROM sector_flow_em WHERE date=?", (today,)).fetchone()[0]
           ths_count = conn.execute("SELECT COUNT(*) FROM sector_flow_ths WHERE date=?", (today,)).fetchone()[0]
+          em_count  = conn.execute("SELECT COUNT(*) FROM sector_flow_em  WHERE date=?", (today,)).fetchone()[0]
+          reco_count = conn.execute("SELECT COUNT(*) FROM stock_reco WHERE date=?", (today,)).fetchone()[0]
           conn.close()
-          print(f"[验证] {today}: EM板块={em_count}条, THS板块={ths_count}条")
-          if em_count == 0:
-              print("⚠️  警告: 东方财富板块数据为空（API可能被封锁），但继续提交其他数据")
-          if ths_count == 0 and em_count == 0:
-              print("❌ 两个板块数据源均为空，退出异常")
+          print(f"[验证] {today}: THS板块={ths_count}条, EM板块={em_count}条（可选）, 个股推荐={reco_count}条")
+          if ths_count == 0:
+              print("❌ 同花顺板块数据为空（主数据源），退出异常")
               sys.exit(1)
+          if em_count == 0:
+              print("⚠️  东方财富板块数据为空（次要数据源，不影响主流程）")
           EOF
 
       - name: 导出 JSON 数据
