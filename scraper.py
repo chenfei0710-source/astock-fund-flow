@@ -99,6 +99,14 @@ def init_db():
             detail_json TEXT
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS strategy_weights (
+            updated_date TEXT PRIMARY KEY,
+            weights_json TEXT,
+            sample_days INTEGER,
+            notes TEXT
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -434,8 +442,10 @@ def save_ths_sector_flow(rows, trade_date):
     return saved
 
 # ── 个股技术面分析 ────────────────────────────────────────────
-def compute_technicals(closes, volumes, opens=None):
+def compute_technicals(closes, volumes, opens=None, weights=None):
     """计算 MA/MACD/RSI/量比/阳线穿均线/MACD0轴/调整10天，返回技术指标字典"""
+    if weights is None:
+        weights = DEFAULT_WEIGHTS
     if len(closes) < 20:
         return None
 
@@ -510,37 +520,22 @@ def compute_technicals(closes, volumes, opens=None):
             if closes[-1] > avg10:
                 pullback_10d = 1
 
-    # ── 评分 v2（基于复盘信号命中率重新校准，满分10分）──
-    # 复盘实证：MACD金叉命中率71%（最强），均线多头30%/0轴上25%/放倍量0%（负效应）
+    # ── 评分（动态权重，由自适应系统提供）──
     score = 0
+    if macd_signal == 'golden': score += weights.get('macd_golden', 4)
+    if macd_signal == 'death':  score += weights.get('macd_death', -3)
+    if macd_above_zero:         score += weights.get('macd_zero', -1)
+    if ma_align:                score += weights.get('ma_align', 1)
+    if 40 <= rsi <= 70:         score += weights.get('rsi_healthy', 1)
+    if rsi > 75:                score += weights.get('rsi_overbought', -2)
+    if 1.2 <= vol_ratio <= 2.5: score += weights.get('vol_moderate', 1)
+    if yang_cross_count >= 2:   score += weights.get('yang_cross_2', 2)
+    elif yang_cross_count == 1: score += weights.get('yang_cross_1', 1)
+    if pullback_10d:             score += weights.get('pullback_10d', 1)
 
-    # MACD 金叉：最强信号，权重提至+4；死叉强力惩罚
-    if macd_signal == 'golden': score += 4
-    if macd_signal == 'death':  score -= 3
-
-    # MACD 0轴：复盘命中率仅25%，改为负向调整
-    if macd_above_zero:         score -= 1
-
-    # 均线多头排列：命中率仅31%，降权重至+1
-    if ma_align:                score += 1
-
-    # RSI：健康区间40-70（收紧），超买强力惩罚
-    if 40 <= rsi <= 70:         score += 1
-    if rsi > 75:                score -= 2
-
-    # 量比：放倍量命中率0%，去掉；温和放量（1.2-2.5x）保留+1
-    if 1.2 <= vol_ratio <= 2.5: score += 1
-
-    # 阳线穿均线：命中率36%，保留但减小权重
-    if yang_cross_count >= 2:   score += 2
-    elif yang_cross_count == 1: score += 1
-
-    # 10日回调反弹：命中率37.5%，保留
-    if pullback_10d:             score += 1
-
-    score = max(0, min(10, score))
-    # 映射到0-5
-    score5 = round(score / 10 * 5)
+    score_max = weights.get('score_max', 10)
+    score = max(0, min(score_max, score))
+    score5 = round(score / score_max * 5)
 
     signal = '强烈关注' if score5 >= 4 else ('值得关注' if score5 >= 2 else '观望')
 
@@ -557,16 +552,150 @@ def compute_technicals(closes, volumes, opens=None):
         'score': score5, 'signal': signal
     }
 
+# ── 自适应权重系统 ─────────────────────────────────────────────
+# 默认权重（v2 基准，当历史数据不足时使用）
+DEFAULT_WEIGHTS = {
+    'macd_golden':   4,
+    'macd_death':   -3,
+    'macd_zero':    -1,
+    'ma_align':      1,
+    'rsi_healthy':   1,
+    'rsi_overbought':-2,
+    'vol_moderate':  1,
+    'yang_cross_2':  2,
+    'yang_cross_1':  1,
+    'pullback_10d':  1,
+    'score_max':    10,   # 满分（用于映射到0-5）
+}
+
+def load_adaptive_weights():
+    """从 DB 加载最新自适应权重，数据不足则返回默认权重"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        row = conn.execute(
+            "SELECT weights_json, sample_days FROM strategy_weights ORDER BY updated_date DESC LIMIT 1"
+        ).fetchone()
+        conn.close()
+        if row and row[1] >= 3:   # 至少3天数据才信任自适应权重
+            w = json.loads(row[0])
+            print(f"[权重] 加载自适应权重（基于 {row[1]} 天数据）: {w}")
+            return w
+    except Exception as e:
+        print(f"[权重] 加载失败，使用默认: {e}")
+    print(f"[权重] 使用默认基准权重（数据积累不足）")
+    return DEFAULT_WEIGHTS.copy()
+
+def compute_adaptive_weights_from_history():
+    """
+    读取全部历史 strategy_review 的 signal_stats，
+    用累积命中率自动计算新权重，写入 DB。
+    规则：命中率 >= 65% → 高权重；< 40% → 负权重；其余线性插值。
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute(
+            "SELECT review_date, detail_json FROM strategy_review ORDER BY review_date"
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        print(f"[自适应权重] 读取历史失败: {e}")
+        return
+
+    if not rows:
+        return
+
+    # 累加所有天的 signal_stats（加权平均，近期数据权重更高）
+    sig_totals = {}
+    total_weight = 0
+    for i, (rdate, djson) in enumerate(rows):
+        if not djson:
+            continue
+        d = json.loads(djson)
+        ss = d.get('signal_stats', {})
+        day_weight = 1 + i * 0.3   # 越新的天权重越高
+        for sig, rate in ss.items():
+            if rate is None:
+                continue
+            if sig not in sig_totals:
+                sig_totals[sig] = {'sum': 0, 'w': 0}
+            sig_totals[sig]['sum'] += rate * day_weight
+            sig_totals[sig]['w']   += day_weight
+        total_weight += day_weight
+
+    sample_days = len(rows)
+    avg_rates = {sig: v['sum'] / v['w'] for sig, v in sig_totals.items() if v['w'] > 0}
+    print(f"[自适应权重] {sample_days}天累积命中率: {avg_rates}")
+
+    def rate_to_weight(rate, baseline=50, scale=4):
+        """命中率线性映射为权重：50%→0, 70%→+4, 30%→-4"""
+        return round((rate - baseline) / baseline * scale, 1)
+
+    new_w = DEFAULT_WEIGHTS.copy()
+    if 'macd_golden' in avg_rates:
+        new_w['macd_golden'] = max(1, min(6, round(rate_to_weight(avg_rates['macd_golden']) + 3)))
+    if 'macd_zero' in avg_rates:
+        new_w['macd_zero'] = max(-3, min(2, round(rate_to_weight(avg_rates['macd_zero']))))
+    if 'ma_align' in avg_rates:
+        new_w['ma_align'] = max(-2, min(3, round(rate_to_weight(avg_rates['ma_align']))))
+    if 'vol_2x' in avg_rates:
+        new_w['vol_moderate'] = max(-2, min(2, round(rate_to_weight(avg_rates['vol_2x']))))
+    if 'yang_cross' in avg_rates:
+        base = max(0, min(3, round(rate_to_weight(avg_rates['yang_cross']) + 1)))
+        new_w['yang_cross_1'] = base
+        new_w['yang_cross_2'] = base + 1
+    if 'pullback_10d' in avg_rates:
+        new_w['pullback_10d'] = max(-1, min(2, round(rate_to_weight(avg_rates['pullback_10d']))))
+
+    notes = f"基于{sample_days}天数据自动计算；各信号均值命中率: " + \
+            ", ".join(f"{k}={v:.1f}%" for k, v in avg_rates.items())
+
+    try:
+        from datetime import date as _date
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            INSERT OR REPLACE INTO strategy_weights (updated_date, weights_json, sample_days, notes)
+            VALUES (?, ?, ?, ?)
+        """, (_date.today().strftime('%Y-%m-%d'), json.dumps(new_w), sample_days, notes))
+        conn.commit()
+        conn.close()
+        print(f"[自适应权重] 已更新: {new_w}")
+    except Exception as e:
+        print(f"[自适应权重] 写入失败: {e}")
+
 async def fetch_all_stocks_and_screen(trade_date):
     """
-    全市场扫描（沪深两市）：
-    1. SSE codes+names via akshare（稳定可用）
-    2. SZSE codes 按代码规律生成（无需网络），尝试 akshare 补充中文名
-    3. yfinance 批量下载全部 K 线 → 初筛涨幅 0.5%~7% → 技术面评分 → TOP 20
+    全市场扫描（沪深两市）：自适应权重 + 市场环境感知
     """
     import akshare as ak
     import yfinance as yf
     import pandas as pd
+
+    # ── 加载自适应权重 ──
+    weights = load_adaptive_weights()
+
+    # ── 市场环境感知：主力净流出时提高选股门槛 ──
+    market_regime = 'neutral'
+    min_score_threshold = 3   # 默认最低评分
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        mf = conn.execute(
+            "SELECT zhuli_net FROM market_flow WHERE date=? LIMIT 1", (trade_date,)
+        ).fetchone()
+        conn.close()
+        if mf:
+            zhuli = mf[0]
+            if zhuli <= -100:
+                market_regime = 'bearish'
+                min_score_threshold = 4   # 熊市：只推高分股
+                print(f"[市场感知] 主力净流出 {zhuli:.1f}亿 → 熊市模式，门槛提至 {min_score_threshold}/5")
+            elif zhuli >= 100:
+                market_regime = 'bullish'
+                min_score_threshold = 2   # 牛市：适当放宽
+                print(f"[市场感知] 主力净流入 {zhuli:.1f}亿 → 牛市模式，门槛降至 {min_score_threshold}/5")
+            else:
+                print(f"[市场感知] 主力资金 {zhuli:+.1f}亿 → 中性模式，门槛 {min_score_threshold}/5")
+    except Exception as e:
+        print(f"[市场感知] 读取失败，使用中性: {e}")
 
     stock_codes = {}   # code -> name（无名则空字符串）
     print("[全市场扫描] 获取 A 股代码列表...")
@@ -710,21 +839,20 @@ async def fetch_all_stocks_and_screen(trade_date):
     candidates = candidates[:100]
     print(f"[全市场扫描] 初筛 {len(candidates)} 只（涨 1%~6%，非ST）")
 
-    # ── 技术面评分 ──
+    # ── 技术面评分（使用自适应权重）──
     scored = []
     for s in candidates:
         closes = s.pop('closes'); opens = s.pop('opens'); volumes = s.pop('volumes')
-        tech = compute_technicals(closes, volumes, opens) if len(closes) >= 20 else None
+        tech = compute_technicals(closes, volumes, opens, weights) if len(closes) >= 20 else None
         if tech is None: continue
-        # v2：排除死叉股（score5=0时 signal='观望' 已过滤，但死叉可能score仍>0）
-        if tech.get('macd_signal') == 'death':
-            continue
-        scored.append({**s, 'sector': '全市场精选', **tech})
+        if tech.get('macd_signal') == 'death': continue          # 排除死叉
+        if tech.get('score', 0) < min_score_threshold: continue  # 市场环境门槛过滤
+        scored.append({**s, 'sector': '全市场精选', 'market_regime': market_regime, **tech})
 
     scored.sort(key=lambda x: (x['score'], x['chg']), reverse=True)
     top15 = scored[:15]
 
-    print(f"[全市场扫描] 评分完成，TOP15：")
+    print(f"[全市场扫描] 评分完成，市场模式={market_regime}，门槛={min_score_threshold}/5，推荐{len(top15)}只：")
     for i, s in enumerate(top15, 1):
         print(f"  {i:2d}. {s['name']}({s['code']}) 评分:{s['score']}/5 涨:{s['chg']:+.2f}% {s['signal']}")
 
@@ -941,6 +1069,12 @@ async def main():
             print("[复盘] 无价格数据，跳过")
     except Exception as e:
         print(f"[复盘] 失败: {e}")
+
+    print("── Step 6: 自动更新信号权重（无需人工干预）──")
+    try:
+        compute_adaptive_weights_from_history()
+    except Exception as e:
+        print(f"[自适应权重] 失败: {e}")
 
     print(f"\n✅ 完成: {trade_date}")
 

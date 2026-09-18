@@ -98,6 +98,22 @@ def export():
             'strategy_review': strategy_review,
         }
 
+    # 最新策略权重（供前端展示"当前策略状态"）
+    strategy_meta = {}
+    try:
+        row = conn.execute(
+            "SELECT weights_json, sample_days, notes, updated_date FROM strategy_weights ORDER BY updated_date DESC LIMIT 1"
+        ).fetchone()
+        if row:
+            strategy_meta = {
+                'weights': json.loads(row[0]),
+                'sample_days': row[1],
+                'notes': row[2],
+                'updated_date': row[3],
+            }
+    except Exception:
+        pass
+
     conn.close()
 
     # 写入 dates.json 和 data.json
@@ -106,6 +122,9 @@ def export():
 
     with open(DATA_DIR / "data.json", 'w', encoding='utf-8') as f:
         json.dump(all_data, f, ensure_ascii=False, separators=(',', ':'))
+
+    with open(DATA_DIR / "strategy_meta.json", 'w', encoding='utf-8') as f:
+        json.dump(strategy_meta, f, ensure_ascii=False, indent=2)
 
     print(f"✅ 导出 {len(dates)} 个交易日数据 → data/")
 
