@@ -762,30 +762,43 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
             if code not in stock_codes:
                 stock_codes[code] = name
 
-    # ── 兜底：代码规律生成深交所缺失的代码（保证覆盖率）──
+    # ── 兜底：代码规律生成缺失的代码（深交所+上交所，保证全市场覆盖）──
+    # 深交所：主板/中小板/创业板
     sz_ranges = (
-        list(range(1,    1000))
-        + list(range(1001, 2000))
-        + list(range(2001, 3000))
-        + list(range(3001, 3200))
-        + list(range(300001, 301000))
-        + list(range(301001, 301600))
+        list(range(1,    1000))       # 000001-000999 主板
+        + list(range(1001, 2000))     # 001001-001999 主板
+        + list(range(2001, 3000))     # 002001-002999 中小板
+        + list(range(3001, 3500))     # 003001-003499 注册制
+        + list(range(300001, 301000)) # 300001-300999 创业板
+        + list(range(301001, 302000)) # 301001-301999 创业板注册制
     )
-    sz_added = 0
-    for n in sz_ranges:
+    # 上交所：主板+科创板（GitHub服务器可能抓不到名称，但要确保代码被扫到）
+    sh_ranges = (
+        list(range(600001, 602000))   # 600001-601999 主板
+        + list(range(603001, 606000)) # 603001-605999 主板（新股）
+        + list(range(688001, 689000)) # 688001-688999 科创板
+        + list(range(689001, 690000)) # 689001-689999 科创板注册制
+    )
+    added = 0
+    for n in sz_ranges + sh_ranges:
         code = f"{n:06d}"
         if code not in stock_codes:
             stock_codes[code] = ''
-            sz_added += 1
-    print(f"[全市场扫描] 代码规律补充 {sz_added} 个（无名称），合计 {len(stock_codes)} 只")
+            added += 1
+    print(f"[全市场扫描] 代码规律补充 {added} 个（无名称），合计 {len(stock_codes)} 只")
 
     # ── 过滤纯 A 股（排除 ETF/债券）──
     def is_a_share(code):
         if len(code) != 6: return False
+        # 排除 ETF/LOF/债券
         if code[:2] in ['51','52','53','54','55','56','57','58']: return False
         if code[:2] in ['10','11','12','13','14']: return False
         if code[:3] in ['159','160','161','162','163','164','165']: return False
-        return code[0] in '6038' or code[:3] in ['000','001','002','003','004','005']
+        # 明确允许的 A 股范围
+        if code[:3] in ('600','601','603','605','688','689'): return True  # 上交所主板+科创板
+        if code[:2] in ('00','30'): return True                            # 深交所主板+创业板
+        if code[:3] in ('002','003'): return True                          # 深交所中小板/注册制
+        return False
 
     all_codes = [(c, n) for c, n in stock_codes.items() if is_a_share(c)]
     print(f"[全市场扫描] 过滤后纯 A 股 {len(all_codes)} 只，开始 yfinance 批量下载...")
