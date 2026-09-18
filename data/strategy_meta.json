@@ -1,0 +1,18 @@
+{
+  "weights": {
+    "macd_golden": 4,
+    "macd_death": -3,
+    "macd_zero": -1,
+    "ma_align": -2,
+    "rsi_healthy": 1,
+    "rsi_overbought": -2,
+    "vol_moderate": 0,
+    "yang_cross_2": 2,
+    "yang_cross_1": 1,
+    "pullback_10d": 0,
+    "score_max": 10
+  },
+  "sample_days": 2,
+  "notes": "基于2天数据自动计算；各信号均值命中率: ma_align=29.6%, macd_golden=59.3%, macd_zero=36.6%, vol_2x=46.2%, yang_cross=51.4%, pullback_10d=54.0%",
+  "updated_date": "2026-09-18"
+}
