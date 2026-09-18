@@ -13,10 +13,15 @@ DATA_DIR.mkdir(exist_ok=True)
 def export():
     conn = sqlite3.connect(DB_PATH)
 
-    # 所有交易日期列表
-    dates = [r[0] for r in conn.execute(
-        "SELECT DISTINCT date FROM sector_flow_em ORDER BY date DESC LIMIT 60"
-    ).fetchall()]
+    # 所有交易日期列表（多表 UNION，任一表有数据即显示该交易日）
+    dates = [r[0] for r in conn.execute("""
+        SELECT date FROM (
+            SELECT date FROM sector_flow_em
+            UNION SELECT date FROM market_flow
+            UNION SELECT date FROM sector_flow_ths
+            UNION SELECT date FROM stock_reco
+        ) ORDER BY date DESC LIMIT 60
+    """).fetchall()]
 
     all_data = {}
     for d in dates:
