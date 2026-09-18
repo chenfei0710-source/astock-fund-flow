@@ -205,8 +205,8 @@ async function init() {
       sel.appendChild(opt);
     });
 
-    // 加载全量数据
-    const dataRes = await fetch('data/data.json');
+    // 加载全量数据（加时间戳避免浏览器缓存旧数据）
+    const dataRes = await fetch('data/data.json?t=' + Date.now());
     allData = await dataRes.json();
 
     if (dates.length) loadData(dates[0]);
