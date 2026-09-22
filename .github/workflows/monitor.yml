@@ -1,0 +1,85 @@
+name: 数据完整性监控与自愈
+
+on:
+  schedule:
+    # 北京时间 16:05 = UTC 08:05，主爬虫后30分钟做最终核验
+    - cron: '5 8 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 检查今日数据完整性
+        id: check
+        run: |
+          TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+          echo "检查日期: $TODAY"
+          THS=$(python3 -c "
+          import sqlite3
+          conn = sqlite3.connect('fund_flow.db')
+          n = conn.execute('SELECT COUNT(*) FROM sector_flow_ths WHERE date=?', ('$TODAY',)).fetchone()[0]
+          conn.close()
+          print(n)
+          ")
+          RECO=$(python3 -c "
+          import sqlite3
+          conn = sqlite3.connect('fund_flow.db')
+          n = conn.execute('SELECT COUNT(*) FROM stock_reco WHERE date=?', ('$TODAY',)).fetchone()[0]
+          conn.close()
+          print(n)
+          ")
+          echo "THS板块=$THS 条，个股推荐=$RECO 条"
+          echo "ths_count=$THS" >> $GITHUB_OUTPUT
+          if [ "$THS" = "0" ]; then
+            echo "missing=true" >> $GITHUB_OUTPUT
+            echo "⚠️ 同花顺数据缺失，将触发自愈重跑"
+          else
+            echo "missing=false" >> $GITHUB_OUTPUT
+            echo "✅ 数据完整，无需干预"
+          fi
+
+      - name: 安装依赖（仅数据缺失时）
+        if: steps.check.outputs.missing == 'true'
+        run: pip install curl_cffi py-mini-racer requests akshare yfinance
+
+      - name: 自愈重跑爬虫
+        if: steps.check.outputs.missing == 'true'
+        run: python scraper.py
+        timeout-minutes: 15
+
+      - name: 重新导出 JSON
+        if: steps.check.outputs.missing == 'true'
+        run: python export_json.py
+
+      - name: 验证自愈结果
+        if: steps.check.outputs.missing == 'true'
+        run: |
+          TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+          python3 -c "
+          import sqlite3, sys
+          conn = sqlite3.connect('fund_flow.db')
+          ths = conn.execute('SELECT COUNT(*) FROM sector_flow_ths WHERE date=?', ('$TODAY',)).fetchone()[0]
+          conn.close()
+          print(f'自愈后 THS={ths}条')
+          if ths == 0:
+              print('❌ 自愈失败，数据仍为空')
+              sys.exit(1)
+          else:
+              print('✅ 自愈成功')
+          "
+
+      - name: 提交修复后的数据
+        if: steps.check.outputs.missing == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ fund_flow.db
+          git diff --cached --quiet || git commit -m "监控自愈: 补全 $(TZ='Asia/Shanghai' date '+%Y-%m-%d') 数据"
+          git push

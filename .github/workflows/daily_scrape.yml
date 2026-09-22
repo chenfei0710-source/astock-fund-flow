@@ -1,0 +1,59 @@
+name: 每日A股资金流向数据更新
+
+on:
+  schedule:
+    # 北京时间 15:35 = UTC 07:35，工作日（周一至周五）
+    - cron: '35 7 * * 1-5'
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install curl_cffi py-mini-racer requests akshare yfinance
+
+      - name: 运行爬虫
+        run: python scraper.py
+        timeout-minutes: 15
+
+      - name: 验证关键数据完整性
+        run: |
+          python3 - << 'EOF'
+          import sqlite3, sys
+          from datetime import date
+          today = date.today().strftime('%Y-%m-%d')
+          conn = sqlite3.connect('fund_flow.db')
+          ths_count = conn.execute("SELECT COUNT(*) FROM sector_flow_ths WHERE date=?", (today,)).fetchone()[0]
+          em_count  = conn.execute("SELECT COUNT(*) FROM sector_flow_em  WHERE date=?", (today,)).fetchone()[0]
+          reco_count = conn.execute("SELECT COUNT(*) FROM stock_reco WHERE date=?", (today,)).fetchone()[0]
+          conn.close()
+          print(f"[验证] {today}: THS板块={ths_count}条, EM板块={em_count}条（可选）, 个股推荐={reco_count}条")
+          if ths_count == 0:
+              print("❌ 同花顺板块数据为空（主数据源），退出异常")
+              sys.exit(1)
+          if em_count == 0:
+              print("⚠️  东方财富板块数据为空（次要数据源，不影响主流程）")
+          EOF
+
+      - name: 导出 JSON 数据
+        run: python export_json.py
+
+      - name: 提交并推送数据
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ fund_flow.db
+          git diff --cached --quiet || git commit -m "数据更新: $(date '+%Y-%m-%d')"
+          git push
