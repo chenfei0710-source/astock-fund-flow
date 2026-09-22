@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股深度复盘 · 2026-09-22</title>
+<style>
+:root{
+  --bg:#f0f2f5;--surface:#fff;--border:#e5e7eb;
+  --up:#e03131;--dn:#0ca678;--accent:#e8580a;
+  --gold:#d08700;--blue:#1c7ed6;--purple:#9c36b5;
+  --text:#1a1a2e;--muted:#6b7280;--radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:14px/1.6 'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;padding:16px}
+a{color:inherit;text-decoration:none}
+.nav{background:var(--text);color:#fff;border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.nav-date{font-size:18px;font-weight:700;letter-spacing:.05em}
+.nav-signal{background:var(--accent);color:#fff;border-radius:6px;padding:3px 10px;font-size:13px;font-weight:600}
+.nav-meta{margin-left:auto;display:flex;gap:12px;font-size:12px;opacity:.8}
+.section{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;overflow:hidden}
+.sec-head{background:linear-gradient(90deg,var(--text),#2d2d44);color:#fff;padding:10px 16px;font-size:13px;font-weight:600;letter-spacing:.08em;display:flex;align-items:center;gap:8px}
+.sec-body{padding:16px}
+.kpi-row{display:flex;gap:12px;flex-wrap:wrap}
+.kpi{flex:1;min-width:110px;background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid var(--border)}
+.kpi.up{border-color:var(--up)}.kpi.dn{border-color:var(--dn)}.kpi.neutral{border-color:var(--blue)}
+.kpi-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.kpi-val{font-size:20px;font-weight:700}
+.kpi-val.up{color:var(--up)}.kpi-val.dn{color:var(--dn)}.kpi-val.neutral{color:var(--blue)}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.hbox{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;line-height:1.7}
+.hbox.red{background:#fff5f5;border-left:4px solid var(--up)}.hbox.green{background:#f0fdf4;border-left:4px solid var(--dn)}
+.hbox.blue{background:#eff6ff;border-left:4px solid var(--blue)}.hbox.gold{background:#fffbeb;border-left:4px solid var(--gold)}
+.hbox.purple{background:#faf5ff;border-left:4px solid var(--purple)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.tbl th{background:var(--bg);color:var(--muted);font-weight:600;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.tbl td{padding:6px 10px;border-bottom:1px solid var(--bg)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#fafafa}
+.b-up{background:#fee2e2;color:var(--up);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
+.b-dn{background:#d1fae5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
+.b-warn{background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
+.b-info{background:#dbeafe;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.trio-card{background:var(--bg);border-radius:8px;padding:12px}
+.trio-title{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.sc-row{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+.sc{flex:1;min-width:160px;border-radius:8px;padding:12px;border:1px solid var(--border)}
+.sc.a{border-color:var(--dn);background:#f0fdf4}.sc.b{border-color:var(--gold);background:#fffbeb}.sc.c{border-color:var(--up);background:#fff5f5}
+.sc-label{font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:4px}
+.sc.a .sc-label{color:var(--dn)}.sc.b .sc-label{color:var(--gold)}.sc.c .sc-label{color:var(--up)}
+.sc-prob{font-size:22px;font-weight:800;margin-bottom:4px}
+.sc.a .sc-prob{color:var(--dn)}.sc.b .sc-prob{color:var(--gold)}.sc.c .sc-prob{color:var(--up)}
+.sc-desc{font-size:12px;color:var(--muted);line-height:1.5}
+.donut-wrap{display:flex;align-items:center;gap:16px;margin-top:12px}
+svg.donut{width:120px;height:120px;transform:rotate(-90deg)}
+.donut-legend{font-size:12px;line-height:2}
+.mine-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.mine{border-radius:8px;padding:10px 14px;border-left:4px solid}
+.mine.high{border-color:var(--up);background:#fff5f5}.mine.mid{border-color:var(--gold);background:#fffbeb}.mine.low{border-color:var(--dn);background:#f0fdf4}
+.mine-title{font-weight:600;font-size:13px;margin-bottom:2px}
+.mine-body{font-size:12px;color:var(--muted)}
+.gate{counter-reset:step;list-style:none;margin-top:8px}
+.gate li{counter-increment:step;padding:6px 0 6px 32px;position:relative;border-bottom:1px solid var(--bg);font-size:13px}
+.gate li::before{content:counter(step);position:absolute;left:0;top:6px;background:var(--text);color:#fff;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.watch5{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.w5-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg);border-radius:8px;padding:8px 12px}
+.w5-num{background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.w5-body{font-size:13px;line-height:1.6}
+.w5-title{font-weight:600}
+.bb-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.bb-box{border-radius:8px;padding:12px}
+.bb-bull{background:#f0fdf4;border:1px solid #bbf7d0}
+.bb-bear{background:#fff5f5;border:1px solid #fecaca}
+.bb-box ul{list-style:none;padding:0} .bb-box li{padding:3px 0;font-size:13px}
+.bb-title{font-size:13px;font-weight:700;margin-bottom:6px}
+@media(max-width:600px){
+  .trio{grid-template-columns:1fr}.kpi{min-width:80px}.sc{min-width:120px}
+  .nav-meta{display:none}.bb-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-date">2026-09-22 · 周二</span>
+  <span class="nav-signal">极度悲观 · —主线</span>
+  <div class="nav-meta">
+    <span>上证指数 3952.13 <span class="up">+0.06%</span></span><span>科创50 1665.04 <span class="up">+0.46%</span></span><span>深证成指 13723.74 <span class="dn">-0.05%</span></span><span>创业板指 3399.93 <span class="up">+0.01%</span></span>
+    <span>主力 <span class="dn">-312.2亿</span></span>
+    <span>超大单 <span class="dn">-95.8亿</span></span>
+    <span>中单 <span class="dn">-46.6亿</span></span>
+  </div>
+</nav>
+
+<!-- STEP1 -->
+<div class="section">
+  <div class="sec-head"><span>STEP 1</span><span>盘面全景 · 今日市场概览</span></div>
+  <div class="sec-body">
+    <div class="kpi-row">
+      <div class="kpi dn">
+        <div class="kpi-label">主力净流入</div>
+        <div class="kpi-val dn">-312.2亿</div>
+        <div class="kpi-sub">大单+超大单合计</div>
+      </div>
+      <div class="kpi dn">
+        <div class="kpi-label">超大单净流入</div>
+        <div class="kpi-val dn">-95.8亿</div>
+        <div class="kpi-sub">机构动向</div>
+      </div>
+      <div class="kpi dn">
+        <div class="kpi-label">中单净流向</div>
+        <div class="kpi-val dn">-46.6亿</div>
+        <div class="kpi-sub">⚠️ 私募规避</div>
+      </div>
+      <div class="kpi dn">
+        <div class="kpi-label">大单净流向</div>
+        <div class="kpi-val dn">-216.3亿</div>
+        <div class="kpi-sub">游资参与度</div>
+      </div>
+      <div class="kpi up">
+        <div class="kpi-label">散户净流向</div>
+        <div class="kpi-val up">+358.7亿</div>
+        <div class="kpi-sub">散户情绪</div>
+      </div>
+      <div class="kpi up">
+        <div class="kpi-label">领涨板块</div>
+        <div class="kpi-val up" style="font-size:15px">—</div>
+        <div class="kpi-sub">+0.00%</div>
+      </div>
+    </div>
+    <div class="hbox blue">
+      <strong>主线研判：—领涨，主力净流入-312.2亿</strong><br>
+      今日极度悲观，—以+0.00%领涨全市，资金净流入+0.0亿，
+      —表现突出。超大单转为净流出，机构态度谨慎。
+      中单-46.6亿是重要警示，需关注明日是否持续。
+    </div>
+    <div class="hbox red"><strong>⚠️ 中单连续预警</strong>：中单净流出46.6亿，历史数据显示中单连续两日净流出时市场短期回调概率约62%。</div>
+    <div class="kpi-row" style="margin-top:12px">
+      <div class="kpi neutral"><div class="kpi-label">两市成交额</div><div class="kpi-val">0亿</div></div>
+      <div class="kpi up"><div class="kpi-label">涨跌家数</div><div class="kpi-val up">0 : 0</div></div>
+      <div class="kpi up"><div class="kpi-label">涨停/跌停</div><div class="kpi-val up">63 / 0</div></div>
+      <div class="kpi dn"><div class="kpi-label">炸板率</div><div class="kpi-val dn">35.7%</div></div>
+      <div class="kpi dn"><div class="kpi-label">首板晋级率</div><div class="kpi-val dn">20.7%</div></div>
+      <div class="kpi up"><div class="kpi-label">连板高度</div><div class="kpi-val up" style="font-size:15px">6板 华瓷股份</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP2 -->
+<div class="section">
+  <div class="sec-head"><span>STEP 2</span><span>多维数据 · 资金与板块深度解析</span></div>
+  <div class="sec-body">
+    <strong style="font-size:13px;color:var(--muted)">▍板块资金动向</strong>
+    <table class="tbl">
+      <thead><tr><th>板块</th><th>涨跌幅</th><th>主力净流入</th><th>领涨股</th><th>性质</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <strong style="font-size:13px;color:var(--muted);display:block;margin-top:16px">▍资金结构拆解</strong>
+    <div class="trio">
+      <div class="trio-card">
+        <div class="trio-title">超大单（机构）</div>
+        <div style="color:var(--dn);font-size:18px;font-weight:700">-95.8亿</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">机构减仓，谨慎信号</div>
+      </div>
+      <div class="trio-card">
+        <div class="trio-title">大单（游资）</div>
+        <div style="color:var(--dn);font-size:18px;font-weight:700">-216.3亿</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">游资观望</div>
+      </div>
+      <div class="trio-card">
+        <div class="trio-title">中单（私募/小机构）</div>
+        <div style="color:var(--dn);font-size:18px;font-weight:700">-46.6亿</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">⚠️ 规避情绪明显，关注持续性</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP3 -->
+<div class="section">
+  <div class="sec-head"><span>STEP 3</span><span>强势个股 · 今日表现解码</span></div>
+  <div class="sec-body">
+    <table class="tbl">
+      <thead><tr><th>标的</th><th>今日涨幅</th><th>上榜原因</th><th>主要买方</th><th>净买入估算</th><th>后市判断</th></tr></thead>
+      <tbody><tr>
+          <td><strong>老板电器</strong></td>
+          <td><span class="b-up">+1.89%</span></td>
+          <td>强势股</td>
+          <td>游资席位</td>
+          <td>+0.19亿</td>
+          <td><span class="b-warn">注意高位</span></td></tr><tr>
+          <td><strong>长江传媒</strong></td>
+          <td><span class="b-up">+2.74%</span></td>
+          <td>强势股</td>
+          <td>游资席位</td>
+          <td>+0.27亿</td>
+          <td><span class="b-warn">注意高位</span></td></tr><tr>
+          <td><strong>新朋股份</strong></td>
+          <td><span class="b-up">+3.18%</span></td>
+          <td>量价齐升</td>
+          <td>游资席位</td>
+          <td>+0.32亿</td>
+          <td><span class="b-warn">注意高位</span></td></tr><tr>
+          <td><strong>新北洋</strong></td>
+          <td><span class="b-up">+1.49%</span></td>
+          <td>强势股</td>
+          <td>游资席位</td>
+          <td>+0.15亿</td>
+          <td><span class="b-warn">注意高位</span></td></tr><tr>
+          <td><strong>环球印务</strong></td>
+          <td><span class="b-up">+1.90%</span></td>
+          <td>强势股</td>
+          <td>游资席位</td>
+          <td>+0.19亿</td>
+          <td><span class="b-warn">注意高位</span></td></tr></tbody>
+    </table>
+    <div class="hbox blue" style="margin-top:12px">
+      <strong>今日主线逻辑</strong>：—板块资金净流入+0.0亿，—等标的领涨，
+      游资短线主导，注意高位风险，严格止损。
+    </div>
+  </div>
+</div>
+
+<!-- STEP4 -->
+<div class="section">
+  <div class="sec-head"><span>STEP 4</span><span>多空推演 · 情景分析与盯盘要点</span></div>
+  <div class="sec-body">
+    <div class="bb-grid">
+      <div class="bb-box bb-bull">
+        <div class="bb-title" style="color:var(--dn)">多方依据</div>
+        <ul><li>北向资金 +0.0亿，外资观望</li></ul>
+      </div>
+      <div class="bb-box bb-bear">
+        <div class="bb-title" style="color:var(--up)">空方风险</div>
+        <ul><li>主力净流出 -312.2亿，资金偏空</li><li>超大单净流出 -95.8亿，机构减仓信号</li><li>中单净流出 -46.6亿，私募/小机构规避</li><li>散户净流入 +358.7亿，追涨风险升温</li></ul>
+      </div>
+    </div>
+
+    <strong style="font-size:13px;color:var(--muted);display:block;margin-bottom:8px">▍三情景推演</strong>
+    <div class="sc-row">
+      <div class="sc a">
+        <div class="sc-label">情景 A · 延续做多</div>
+        <div class="sc-prob">5%</div>
+        <div class="sc-desc">超跌反弹，资金回流，压制位测试<br><br><strong>操作</strong>：轻仓参与，严控追高，以观望为主</div>
+      </div>
+      <div class="sc b">
+        <div class="sc-label">情景 B ⚡ 震荡（基准）</div>
+        <div class="sc-prob">35%</div>
+        <div class="sc-desc">多空分歧，宽幅区间震荡，等待方向选择<br><br><strong>操作</strong>：控仓40-60%，高抛低吸，不追涨不杀跌</div>
+      </div>
+      <div class="sc c">
+        <div class="sc-label">情景 C · 回调风险</div>
+        <div class="sc-prob">60%</div>
+        <div class="sc-desc">高位连板股集中炸板，资金加速撤离，指数跌破支撑<br><br><strong>操作</strong>：立即降仓至3成以下，严守止损，等待企稳</div>
+      </div>
+    </div>
+
+    <div class="donut-wrap">
+      <svg class="donut" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3.8"/>
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#0ca678" stroke-width="3.8"
+          stroke-dasharray="5 95" stroke-dashoffset="25"/>
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#d08700" stroke-width="3.8"
+          stroke-dasharray="35 65" stroke-dashoffset="20"/>
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e03131" stroke-width="3.8"
+          stroke-dasharray="60 40" stroke-dashoffset="-15"/>
+      </svg>
+      <div class="donut-legend">
+        <div><span style="color:var(--dn)">■</span> 情景A 延续做多 <strong>5%</strong></div>
+        <div><span style="color:var(--gold)">■</span> 情景B 震荡整理 <strong>35%</strong> ⚡基准</div>
+        <div><span style="color:var(--up)">■</span> 情景C 回调风险 <strong>60%</strong></div>
+      </div>
+    </div>
+
+    <strong style="font-size:13px;color:var(--muted);display:block;margin-top:16px">▍明日盯盘五件事</strong>
+    <div class="watch5">
+      <div class="w5-item"><div class="w5-num">1</div><div class="w5-body"><span class="w5-title">—板块开盘30分钟主力流向</span> — 净流入>15亿则延续，净流出则当日观望</div></div>
+      <div class="w5-item"><div class="w5-num">2</div><div class="w5-body"><span class="w5-title">超大单方向确认</span> — 开盘30分钟超大单净流入>30亿则情景A概率提升，反之降低</div></div>
+      <div class="w5-item"><div class="w5-num">3</div><div class="w5-body"><span class="w5-title">中单资金方向</span> — 今日-46.6亿，若明日转正则多头信号增强</div></div>
+      <div class="w5-item"><div class="w5-num">4</div><div class="w5-body"><span class="w5-title">沪指关键支撑</span> — 若跌破整数关口，触发情景C，执行降仓操作</div></div>
+      <div class="w5-item"><div class="w5-num">5</div><div class="w5-body"><span class="w5-title">北向资金</span> — 若净流出超-20亿，外资撤离信号明确，建议降低仓位</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP5 -->
+<div class="section">
+  <div class="sec-head"><span>STEP 5</span><span>作战计划 · 个股操作与仓位管理</span></div>
+  <div class="sec-body">
+    <table class="tbl">
+      <thead><tr><th>标的</th><th>方向</th><th>理由</th><th>操作</th><th>仓位</th></tr></thead>
+      <tbody><tr><td colspan='5' style='text-align:center;color:#6b7280'>今日无明确主线信号</td></tr></tbody>
+    </table>
+    <div class="hbox gold" style="margin-top:12px">
+      <strong>仓位风控原则</strong><br>
+      整体仓位建议20-40%，以观察为主，等待缩量企稳，勿抄底加仓。
+    </div>
+    <ol class="gate">
+      <li>高位连板股（3板以上）次日严禁追涨，等待回踩再入</li>
+      <li>单票亏损达-5%，无条件止损，不恋战</li>
+      <li>中单若明日继续净流出超-40亿，全部降至3成</li>
+      <li>主线板块开盘30分钟净流出则当日观望，不操作</li>
+      <li>保持耐心，等待高确定性机会，宁可错过不做错</li>
+    </ol>
+  </div>
+</div>
+
+<!-- STEP6 -->
+<div class="section">
+  <div class="sec-head"><span>STEP 6</span><span>雷区名单 · 风险与危机预警</span></div>
+  <div class="sec-body">
+    <div class="mine-list">
+      <div class="mine high">
+          <div class="mine-title">🔴 系统性预警 · 中单净流出 -46.6亿</div>
+          <div class="mine-body">私募/小机构规避情绪明显，若明日持续净流出超-40亿，建议降仓至3成以下。</div>
+        </div>
+      <div class="mine mid">
+        <div class="mine-title">🟡 操作纪律提醒</div>
+        <div class="mine-body">不追涨停次日高开 | 连板3板以上不新仓 | 单票亏损-5%无条件止损 | 不满仓操作 | 盘前情绪亢奋时降低一档仓位</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SERENITY -->
+<div class="section">
+  <div class="sec-head"><span>SERENITY</span><span>供应链卡脖子扫描 · 今日主线标的评估</span></div>
+  <div class="sec-body">
+    <table class="tbl">
+      <thead><tr><th>标的</th><th>逻辑</th><th>资金面</th><th>操作建议</th><th>评级</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="hbox purple" style="margin-top:12px">
+      今日—板块整体净流入+0.0亿，—领涨，关注板块内龙头的持续性和换手情况。
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;color:var(--muted);font-size:11px;padding:16px 0 8px">
+  A股深度复盘 · 2026-09-22 · 数据来源：同花顺 / 东方财富 · 仅供参考，不构成投资建议
+</div>
+
+</body>
+</html>
