@@ -5,341 +5,951 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>A股深度复盘 · 2026-09-22</title>
 <style>
-:root{
-  --bg:#f0f2f5;--surface:#fff;--border:#e5e7eb;
-  --up:#e03131;--dn:#0ca678;--accent:#e8580a;
-  --gold:#d08700;--blue:#1c7ed6;--purple:#9c36b5;
-  --text:#1a1a2e;--muted:#6b7280;--radius:10px;
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --surface2: #f7f8fa;
+  --border: #e2e8f0;
+  --border2: #cbd5e1;
+  --up: #e03131;
+  --up2: #f03e3e;
+  --down: #0ca678;
+  --accent: #e8580a;
+  --accent2: #f76707;
+  --gold: #d08700;
+  --blue: #1c7ed6;
+  --purple: #9c36b5;
+  --text: #1a202c;
+  --text2: #4a5568;
+  --text3: #718096;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font:14px/1.6 'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;padding:16px}
-a{color:inherit;text-decoration:none}
-.nav{background:var(--text);color:#fff;border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap}
-.nav-date{font-size:18px;font-weight:700;letter-spacing:.05em}
-.nav-signal{background:var(--accent);color:#fff;border-radius:6px;padding:3px 10px;font-size:13px;font-weight:600}
-.nav-meta{margin-left:auto;display:flex;gap:12px;font-size:12px;opacity:.8}
-.section{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;overflow:hidden}
-.sec-head{background:linear-gradient(90deg,var(--text),#2d2d44);color:#fff;padding:10px 16px;font-size:13px;font-weight:600;letter-spacing:.08em;display:flex;align-items:center;gap:8px}
-.sec-body{padding:16px}
-.kpi-row{display:flex;gap:12px;flex-wrap:wrap}
-.kpi{flex:1;min-width:110px;background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid var(--border)}
-.kpi.up{border-color:var(--up)}.kpi.dn{border-color:var(--dn)}.kpi.neutral{border-color:var(--blue)}
-.kpi-label{font-size:11px;color:var(--muted);margin-bottom:4px}
-.kpi-val{font-size:20px;font-weight:700}
-.kpi-val.up{color:var(--up)}.kpi-val.dn{color:var(--dn)}.kpi-val.neutral{color:var(--blue)}
-.kpi-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.hbox{border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;line-height:1.7}
-.hbox.red{background:#fff5f5;border-left:4px solid var(--up)}.hbox.green{background:#f0fdf4;border-left:4px solid var(--dn)}
-.hbox.blue{background:#eff6ff;border-left:4px solid var(--blue)}.hbox.gold{background:#fffbeb;border-left:4px solid var(--gold)}
-.hbox.purple{background:#faf5ff;border-left:4px solid var(--purple)}
-.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-.tbl th{background:var(--bg);color:var(--muted);font-weight:600;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)}
-.tbl td{padding:6px 10px;border-bottom:1px solid var(--bg)}
-.tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:#fafafa}
-.b-up{background:#fee2e2;color:var(--up);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
-.b-dn{background:#d1fae5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
-.b-warn{background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
-.b-info{background:#dbeafe;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}
-.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
-.trio-card{background:var(--bg);border-radius:8px;padding:12px}
-.trio-title{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
-.sc-row{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
-.sc{flex:1;min-width:160px;border-radius:8px;padding:12px;border:1px solid var(--border)}
-.sc.a{border-color:var(--dn);background:#f0fdf4}.sc.b{border-color:var(--gold);background:#fffbeb}.sc.c{border-color:var(--up);background:#fff5f5}
-.sc-label{font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:4px}
-.sc.a .sc-label{color:var(--dn)}.sc.b .sc-label{color:var(--gold)}.sc.c .sc-label{color:var(--up)}
-.sc-prob{font-size:22px;font-weight:800;margin-bottom:4px}
-.sc.a .sc-prob{color:var(--dn)}.sc.b .sc-prob{color:var(--gold)}.sc.c .sc-prob{color:var(--up)}
-.sc-desc{font-size:12px;color:var(--muted);line-height:1.5}
-.donut-wrap{display:flex;align-items:center;gap:16px;margin-top:12px}
-svg.donut{width:120px;height:120px;transform:rotate(-90deg)}
-.donut-legend{font-size:12px;line-height:2}
-.mine-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.mine{border-radius:8px;padding:10px 14px;border-left:4px solid}
-.mine.high{border-color:var(--up);background:#fff5f5}.mine.mid{border-color:var(--gold);background:#fffbeb}.mine.low{border-color:var(--dn);background:#f0fdf4}
-.mine-title{font-weight:600;font-size:13px;margin-bottom:2px}
-.mine-body{font-size:12px;color:var(--muted)}
-.gate{counter-reset:step;list-style:none;margin-top:8px}
-.gate li{counter-increment:step;padding:6px 0 6px 32px;position:relative;border-bottom:1px solid var(--bg);font-size:13px}
-.gate li::before{content:counter(step);position:absolute;left:0;top:6px;background:var(--text);color:#fff;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
-.watch5{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-.w5-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg);border-radius:8px;padding:8px 12px}
-.w5-num{background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.w5-body{font-size:13px;line-height:1.6}
-.w5-title{font-weight:600}
-.bb-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-.bb-box{border-radius:8px;padding:12px}
-.bb-bull{background:#f0fdf4;border:1px solid #bbf7d0}
-.bb-bear{background:#fff5f5;border:1px solid #fecaca}
-.bb-box ul{list-style:none;padding:0} .bb-box li{padding:3px 0;font-size:13px}
-.bb-title{font-size:13px;font-weight:700;margin-bottom:6px}
-@media(max-width:600px){
-  .trio{grid-template-columns:1fr}.kpi{min-width:80px}.sc{min-width:120px}
-  .nav-meta{display:none}.bb-grid{grid-template-columns:1fr}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'PingFang SC','Helvetica Neue',sans-serif;font-size:14px;line-height:1.5}
+
+/* ── NAV ─────────────────────────────── */
+.nav{
+  position:sticky;top:0;z-index:200;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:0 20px;height:48px;
+  display:flex;align-items:center;gap:16px;
+  box-shadow:0 1px 8px rgba(0,0,0,.08);
+}
+.nav-logo{font-size:.9rem;font-weight:800;color:var(--accent);white-space:nowrap;letter-spacing:.5px}
+.nav-divider{width:1px;height:20px;background:var(--border)}
+.nav-tag{
+  padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700;
+  background:rgba(224,49,49,.1);color:var(--up);border:1px solid rgba(224,49,49,.25);
+  white-space:nowrap;
+}
+.nav-indices{display:flex;gap:16px;margin-left:auto}
+.nav-idx{font-size:.75rem;color:var(--text2);white-space:nowrap}
+.nav-idx b{color:var(--up);font-weight:700}
+@media(max-width:640px){.nav-indices{display:none}}
+
+/* ── LAYOUT ──────────────────────────── */
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px}
+
+/* ── SECTION ─────────────────────────── */
+.sec{margin-bottom:36px}
+.sec-hd{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:18px;padding-bottom:12px;
+  border-bottom:2px solid var(--border);
+}
+.step-pill{
+  padding:3px 10px;border-radius:6px;
+  background:var(--accent);color:#fff;
+  font-size:.68rem;font-weight:800;letter-spacing:.5px;
+  flex-shrink:0;
+}
+.sec-hd h2{font-size:1.1rem;font-weight:700;color:var(--text)}
+.sec-hd .sub{font-size:.78rem;color:var(--text3);margin-left:auto;white-space:nowrap}
+
+/* ── STAT GRID ───────────────────────── */
+.stat-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:10px}
+.stat-row2{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:700px){.stat-row{grid-template-columns:repeat(3,1fr)}.stat-row2{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){.stat-row{grid-template-columns:repeat(2,1fr)}}
+
+.kpi{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:14px 12px;text-align:center;
+  position:relative;overflow:hidden;transition:box-shadow .2s;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.kpi:hover{box-shadow:0 3px 10px rgba(0,0,0,.1)}
+.kpi::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--border);
+}
+.kpi.up::before{background:var(--up)}
+.kpi.gold::before{background:var(--gold)}
+.kpi.blue::before{background:var(--blue)}
+.kpi .lbl{font-size:.68rem;color:var(--text3);margin-bottom:6px;letter-spacing:.3px}
+.kpi .num{font-size:1.35rem;font-weight:800;line-height:1.1}
+.kpi .chg{font-size:.72rem;margin-top:4px}
+.kpi.up .num,.kpi.up .chg{color:var(--up)}
+.kpi.gold .num{color:var(--gold)}
+.kpi.gold .chg{color:var(--text2)}
+.kpi.blue .num{color:var(--blue)}
+
+/* ── CARD ────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.card-title{
+  display:flex;align-items:center;gap:8px;
+  font-size:.8rem;font-weight:700;color:var(--text2);
+  margin-bottom:14px;text-transform:uppercase;letter-spacing:.6px;
+}
+.card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.card-title .dot.gold{background:var(--gold)}
+.card-title .dot.blue{background:var(--blue)}
+.card-title .dot.purple{background:var(--purple)}
+.card-title .dot.green{background:var(--down)}
+
+/* ── HIGHLIGHT BOX ───────────────────── */
+.hbox{
+  border-radius:8px;padding:12px 14px;font-size:.83rem;line-height:1.75;
+  border-left:3px solid var(--accent);
+  background:rgba(232,88,10,.05);
+}
+.hbox.gold{border-color:var(--gold);background:rgba(208,135,0,.05)}
+.hbox.red{border-color:var(--up);background:rgba(224,49,49,.05)}
+.hbox.green{border-color:var(--down);background:rgba(12,166,120,.05)}
+.hbox.blue{border-color:var(--blue);background:rgba(28,126,214,.05)}
+.hbox.purple{border-color:var(--purple);background:rgba(156,54,181,.05)}
+.hbox + .hbox{margin-top:10px}
+
+/* ── INLINE BADGES ───────────────────── */
+.b{display:inline-block;padding:1px 7px;border-radius:4px;font-size:.68rem;font-weight:700;vertical-align:middle;margin:1px}
+.b-o{background:rgba(232,88,10,.1);color:var(--accent);border:1px solid rgba(232,88,10,.3)}
+.b-r{background:rgba(224,49,49,.1);color:var(--up);border:1px solid rgba(224,49,49,.3)}
+.b-g{background:rgba(12,166,120,.1);color:var(--down);border:1px solid rgba(12,166,120,.25)}
+.b-b{background:rgba(28,126,214,.1);color:var(--blue);border:1px solid rgba(28,126,214,.25)}
+.b-gold{background:rgba(208,135,0,.1);color:var(--gold);border:1px solid rgba(208,135,0,.25)}
+.b-grey{background:rgba(74,85,104,.08);color:var(--text2);border:1px solid rgba(74,85,104,.18)}
+.b-pur{background:rgba(156,54,181,.1);color:var(--purple);border:1px solid rgba(156,54,181,.25)}
+
+/* ── TABLE ───────────────────────────── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{
+  background:#f1f5f9;color:var(--text3);
+  padding:9px 10px;text-align:right;
+  border-bottom:1px solid var(--border);
+  font-weight:600;font-size:.7rem;letter-spacing:.3px;white-space:nowrap;
+}
+th:first-child,td.l{text-align:left}
+td{padding:9px 10px;border-bottom:1px solid rgba(30,45,61,.8);text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+td.name{color:var(--text);font-weight:600}
+td.wrap{white-space:normal;text-align:left;font-size:.76rem;color:var(--text2);line-height:1.5}
+.up{color:var(--up)}
+.dn{color:var(--down)}
+.gold-t{color:var(--gold)}
+.blue-t{color:var(--blue)}
+.dim{color:var(--text2)}
+
+/* ── SCENARIO CARDS ──────────────────── */
+.sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:700px){.sc-grid{grid-template-columns:1fr}}
+.sc{border-radius:14px;overflow:hidden;position:relative}
+.sc-a{background:linear-gradient(160deg,rgba(224,49,49,.07),rgba(224,49,49,.02));border:1px solid rgba(224,49,49,.22)}
+.sc-b{background:linear-gradient(160deg,rgba(208,135,0,.08),rgba(208,135,0,.02));border:1px solid rgba(208,135,0,.25)}
+.sc-c{background:linear-gradient(160deg,rgba(100,116,139,.06),rgba(100,116,139,.01));border:1px solid rgba(100,116,139,.18)}
+/* header strip */
+.sc-head{padding:14px 16px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,.05)}
+.sc-donut{flex-shrink:0}
+.sc-meta{flex:1;min-width:0}
+.sc-label{font-size:.68rem;font-weight:700;letter-spacing:.5px;margin-bottom:2px;text-transform:uppercase}
+.sc-a .sc-label{color:var(--up)}
+.sc-b .sc-label{color:var(--gold)}
+.sc-c .sc-label{color:var(--text3)}
+.sc-title{font-size:.92rem;font-weight:800;line-height:1.2}
+.sc-a .sc-title{color:var(--up)}
+.sc-b .sc-title{color:var(--gold)}
+.sc-c .sc-title{color:var(--text2)}
+/* baseline badge */
+.sc-base-badge{
+  position:absolute;top:10px;right:10px;
+  padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:800;
+  background:rgba(245,159,0,.2);color:var(--gold);border:1px solid rgba(245,159,0,.4);
+}
+/* body */
+.sc-body{padding:12px 16px 0}
+.sc-section-lbl{
+  font-size:.65rem;font-weight:700;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--text3);
+  margin-bottom:6px;display:flex;align-items:center;gap:5px;
+}
+.sc-section-lbl::before{content:'';display:inline-block;width:12px;height:1px;background:currentColor}
+.sc ul{list-style:none;padding:0;font-size:.76rem;color:var(--text2);margin-bottom:12px}
+.sc ul li{padding:3px 0;display:flex;gap:6px;line-height:1.4}
+.sc ul li::before{content:"›";color:var(--accent);flex-shrink:0;margin-top:1px}
+/* action block */
+.sc-action{
+  margin:0 -0px;padding:10px 16px 14px;
+  font-size:.76rem;line-height:1.55;
+  border-top:1px solid rgba(255,255,255,.05);
+}
+.sc-action-lbl{font-size:.65rem;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.sc-action-lbl::before{content:'';display:inline-block;width:12px;height:1px;background:currentColor}
+.sc-a .sc-action{background:rgba(224,49,49,.05)}
+.sc-a .sc-action-lbl{color:var(--up)}
+.sc-b .sc-action{background:rgba(208,135,0,.05)}
+.sc-b .sc-action-lbl{color:var(--gold)}
+.sc-c .sc-action{background:rgba(100,116,139,.04)}
+.sc-c .sc-action-lbl{color:var(--text3)}
+
+/* ── MINE (MINEFIELD) ────────────────── */
+.mine{
+  display:flex;gap:12px;padding:12px 14px;margin-bottom:8px;
+  border-radius:8px;background:rgba(224,49,49,.04);
+  border:1px solid rgba(224,49,49,.15);
+}
+.mine-ico{font-size:1.1rem;flex-shrink:0;padding-top:1px}
+.mine-nm{font-weight:700;color:var(--up);font-size:.85rem}
+.mine-desc{font-size:.76rem;color:var(--text2);margin-top:2px;line-height:1.5}
+
+/* ── SAMPLE TRIO ─────────────────────── */
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:700px){.trio{grid-template-columns:1fr}}
+.trio-card{padding:14px;border-radius:10px;font-size:.78rem;line-height:1.6}
+.trio-card h4{font-size:.8rem;font-weight:700;margin-bottom:6px}
+.trio-g{background:rgba(12,166,120,.04);border:1px solid rgba(12,166,120,.15)}
+.trio-g h4{color:var(--down)}
+.trio-r{background:rgba(224,49,49,.04);border:1px solid rgba(224,49,49,.15)}
+.trio-r h4{color:var(--up)}
+.trio-y{background:rgba(208,135,0,.04);border:1px solid rgba(208,135,0,.15)}
+.trio-y h4{color:var(--gold)}
+
+/* ── SCORE ───────────────────────────── */
+.score-num{font-size:3rem;font-weight:900;color:var(--gold);line-height:1}
+
+/* ── CHECKLIST ───────────────────────── */
+.cklist{list-style:none;padding:0}
+.cklist li{padding:5px 0;font-size:.82rem;display:flex;gap:8px}
+.cklist li::before{content:"▸";color:var(--accent);flex-shrink:0}
+
+/* ── FLOW BAR ────────────────────────── */
+.fbar{display:inline-block;width:52px;height:5px;background:var(--border2);border-radius:3px;vertical-align:middle;margin-right:4px;overflow:hidden}
+.fbar-f{height:100%;border-radius:3px;background:var(--up)}
+.fbar-f.dn{background:var(--down)}
+
+/* ── WATCHLIST ───────────────────────── */
+.wl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:600px){.wl-grid{grid-template-columns:1fr}}
+.wl-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px}
+.wl-item.danger{border-color:rgba(224,49,49,.25);background:rgba(224,49,49,.03)}
+.wl-nm{font-weight:700;font-size:.85rem;margin-bottom:4px}
+.wl-sub{font-size:.73rem;color:var(--text2);line-height:1.5}
+
+/* ── GATE CHECKLIST ──────────────────── */
+.gate{counter-reset:gate}
+.gate li{
+  counter-increment:gate;list-style:none;
+  padding:8px 12px 8px 42px;position:relative;
+  border-bottom:1px solid var(--border);font-size:.82rem;line-height:1.5;
+}
+.gate li:last-child{border-bottom:none}
+.gate li::before{
+  content:counter(gate);
+  position:absolute;left:12px;top:9px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:.68rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;
+}
+
+/* ── WATCH CHECKLIST ─────────────────── */
+.watch5{counter-reset:w5}
+.watch5 li{
+  counter-increment:w5;list-style:none;
+  padding:9px 12px 9px 44px;position:relative;
+  font-size:.8rem;border-bottom:1px solid var(--border);line-height:1.5;color:var(--text2);
+}
+.watch5 li:last-child{border-bottom:none}
+.watch5 li::before{
+  content:counter(w5);
+  position:absolute;left:12px;top:10px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--surface2);border:1px solid var(--border2);
+  color:var(--gold);font-size:.68rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+.watch5 li strong{color:var(--text)}
+
+/* ── TWO-COL ─────────────────────────── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+
+/* ── FOOTER ──────────────────────────── */
+footer{
+  text-align:center;padding:28px 16px;margin-top:16px;
+  border-top:1px solid var(--border);
+  color:var(--text3);font-size:.72rem;line-height:1.8;
+}
+
+/* ── DISCLAIMER ──────────────────────── */
+.disclaimer{
+  margin:20px 0;padding:14px 18px;
+  border-radius:8px;border:1px dashed var(--border2);
+  text-align:center;font-size:.74rem;color:var(--text3);
 }
 </style>
 </head>
 <body>
 
+<!-- ████ NAV ████ -->
 <nav class="nav">
-  <span class="nav-date">2026-09-22 · 周二</span>
-  <span class="nav-signal">极度悲观 · —主线</span>
-  <div class="nav-meta">
-    <span>上证指数 3952.13 <span class="up">+0.06%</span></span><span>科创50 1665.04 <span class="up">+0.46%</span></span><span>深证成指 13723.74 <span class="dn">-0.05%</span></span><span>创业板指 3399.93 <span class="up">+0.01%</span></span>
-    <span>主力 <span class="dn">-312.2亿</span></span>
-    <span>超大单 <span class="dn">-95.8亿</span></span>
-    <span>中单 <span class="dn">-46.6亿</span></span>
+  <span class="nav-logo">📊 A股深度复盘</span>
+  <div class="nav-divider"></div>
+  <span style="font-size:.78rem;color:var(--text2)">2026-09-22 · 周五</span>
+  <span class="nav-tag">🟢 牛市模式 -312亿</span>
+  <div class="nav-indices">
+    <span class="nav-idx">上证 <b>3911 ↑+0.94%</b></span>
+    <span class="nav-idx">深证 <b>13640 ↑+1.72%</b></span>
+    <span class="nav-idx">创业板 <b>3372 ↑+2.25%</b></span>
+    <span class="nav-idx">科创50 <b>1652 ↑+2.88%</b></span>
   </div>
 </nav>
 
-<!-- STEP1 -->
-<div class="section">
-  <div class="sec-head"><span>STEP 1</span><span>盘面全景 · 今日市场概览</span></div>
-  <div class="sec-body">
-    <div class="kpi-row">
-      <div class="kpi dn">
-        <div class="kpi-label">主力净流入</div>
-        <div class="kpi-val dn">-312.2亿</div>
-        <div class="kpi-sub">大单+超大单合计</div>
-      </div>
-      <div class="kpi dn">
-        <div class="kpi-label">超大单净流入</div>
-        <div class="kpi-val dn">-95.8亿</div>
-        <div class="kpi-sub">机构动向</div>
-      </div>
-      <div class="kpi dn">
-        <div class="kpi-label">中单净流向</div>
-        <div class="kpi-val dn">-46.6亿</div>
-        <div class="kpi-sub">⚠️ 私募规避</div>
-      </div>
-      <div class="kpi dn">
-        <div class="kpi-label">大单净流向</div>
-        <div class="kpi-val dn">-216.3亿</div>
-        <div class="kpi-sub">游资参与度</div>
-      </div>
-      <div class="kpi up">
-        <div class="kpi-label">散户净流向</div>
-        <div class="kpi-val up">+358.7亿</div>
-        <div class="kpi-sub">散户情绪</div>
-      </div>
-      <div class="kpi up">
-        <div class="kpi-label">领涨板块</div>
-        <div class="kpi-val up" style="font-size:15px">—</div>
-        <div class="kpi-sub">+0.00%</div>
-      </div>
+<div class="wrap">
+
+<!-- ═══════════════════════════════════════════
+     STEP 1  今日盘面全景回顾
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill">STEP 1</span>
+    <h2>今日盘面全景回顾</h2>
+    <span class="sub">修复行情第三天 · 放量扩散段</span>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="stat-row">
+    <div class="kpi up"><div class="lbl">上证指数</div><div class="num">3911.87</div><div class="chg">↑ +0.94%</div></div>
+    <div class="kpi up"><div class="lbl">深证成指</div><div class="num">13640.87</div><div class="chg">↑ +1.72%</div></div>
+    <div class="kpi up"><div class="lbl">创业板指</div><div class="num">3372.68</div><div class="chg">↑ +2.25%</div></div>
+    <div class="kpi up"><div class="lbl">科创50</div><div class="num">1652.63</div><div class="chg">↑ +2.88%</div></div>
+    <div class="kpi up"><div class="lbl">两市成交</div><div class="num" style="font-size:1.1rem">21400亿</div><div class="chg">↑ +13% vs昨日</div></div>
+    <div class="kpi up"><div class="lbl">涨停 / 跌停</div><div class="num">63 / 0</div><div class="chg" style="color:var(--text2)">全部非ST</div></div>
+  </div>
+  <div class="stat-row2">
+    <div class="kpi gold"><div class="lbl">连板高度</div><div class="num">6板</div><div class="chg">华瓷股份</div></div>
+    <div class="kpi up"><div class="lbl">涨跌家数比</div><div class="num">3.68:1</div><div class="chg" style="color:var(--text2)">4234涨 / 1152跌</div></div>
+    <div class="kpi blue"><div class="lbl">炸板率</div><div class="num">35.7%</div><div class="chg" style="color:var(--text2)">25 / 103</div></div>
+    <div class="kpi blue"><div class="lbl">首板晋级率</div><div class="num">20.7%</div><div class="chg" style="color:var(--text2)">12 / 47</div></div>
+  </div>
+
+  <!-- 走势素描 -->
+  <div class="card" style="margin-top:4px">
+    <div class="card-title"><span class="dot"></span>大盘走势素描</div>
+    <div class="hbox" style="margin-bottom:10px">
+      修复行情进入<strong>第三天，走出放量上攻扩散段</strong>。上证站上3900整数关创9/11调整以来收盘新高；创业板+2.25%、科创50+2.88%连续三日领涨，均收复MA5/MA20。中证1000+1.84%，小盘持续活跃。
     </div>
-    <div class="hbox blue">
-      <strong>主线研判：—领涨，主力净流入-312.2亿</strong><br>
-      今日极度悲观，—以+0.00%领涨全市，资金净流入+0.0亿，
-      —表现突出。超大单转为净流出，机构态度谨慎。
-      中单-46.6亿是重要警示，需关注明日是否持续。
+    <div class="hbox green">
+      <strong style="color:var(--down)">量能关键信号：</strong>两市21400亿，较前日<strong>放量13%</strong>——是9/16修复启动以来最大单日成交，修复行情首次出现"放量加速"特征。两融净流入383.5亿（连续第二日大幅回流），增量资金持续入场有真金白银背书。
     </div>
-    <div class="hbox red"><strong>⚠️ 中单连续预警</strong>：中单净流出46.6亿，历史数据显示中单连续两日净流出时市场短期回调概率约62%。</div>
-    <div class="kpi-row" style="margin-top:12px">
-      <div class="kpi neutral"><div class="kpi-label">两市成交额</div><div class="kpi-val">0亿</div></div>
-      <div class="kpi up"><div class="kpi-label">涨跌家数</div><div class="kpi-val up">0 : 0</div></div>
-      <div class="kpi up"><div class="kpi-label">涨停/跌停</div><div class="kpi-val up">63 / 0</div></div>
-      <div class="kpi dn"><div class="kpi-label">炸板率</div><div class="kpi-val dn">35.7%</div></div>
-      <div class="kpi dn"><div class="kpi-label">首板晋级率</div><div class="kpi-val dn">20.7%</div></div>
-      <div class="kpi up"><div class="kpi-label">连板高度</div><div class="kpi-val up" style="font-size:15px">6板 华瓷股份</div></div>
+    <div style="margin-top:10px" class="hbox red">
+      <strong>市场核心主线切换：</strong><span class="b b-r">半导体全产业链（封测/设备/芯片设计）</span>接棒<span class="b b-grey">光模块/PCB</span>成为绝对主线——华天科技龙虎榜净买+8.18亿（四方同席），半导体5日净流入336.69亿；PCB概念净流出60.2亿，印制电路板-46.57亿，<strong>旧主线兑现信号明确</strong>。
     </div>
   </div>
 </div>
 
-<!-- STEP2 -->
-<div class="section">
-  <div class="sec-head"><span>STEP 2</span><span>多维数据 · 资金与板块深度解析</span></div>
-  <div class="sec-body">
-    <strong style="font-size:13px;color:var(--muted)">▍板块资金动向</strong>
-    <table class="tbl">
-      <thead><tr><th>板块</th><th>涨跌幅</th><th>主力净流入</th><th>领涨股</th><th>性质</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <strong style="font-size:13px;color:var(--muted);display:block;margin-top:16px">▍资金结构拆解</strong>
+<!-- ═══════════════════════════════════════════
+     STEP 2  多维数据深度剖析
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill">STEP 2</span>
+    <h2>多维数据深度剖析</h2>
+  </div>
+
+  <!-- 2.1 指数量能 -->
+  <div class="card">
+    <div class="card-title"><span class="dot gold"></span>2.1 指数与量能表现矩阵</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="l">指数</th><th>收盘</th><th>涨跌幅</th><th>较MA5</th><th>较MA20</th><th>日内形态</th></tr></thead>
+        <tbody>
+          <tr><td class="name l">上证指数</td><td>3911.87</td><td class="up">↑ +0.94%</td><td class="up">上方+26pt</td><td class="gold-t">下方-11pt</td><td class="wrap">半边上攻，午后站稳3900，创调整新高</td></tr>
+          <tr><td class="name l">深证成指</td><td>13640.87</td><td class="up">↑ +1.72%</td><td class="up">上方</td><td class="gold-t">下方-34pt</td><td class="wrap">强于上证，科技主导</td></tr>
+          <tr><td class="name l">创业板指</td><td>3372.68</td><td class="up">↑ +2.25%</td><td class="up">上方</td><td class="up">上方</td><td class="wrap">连续二日站上MA20，成长修复最坚决</td></tr>
+          <tr><td class="name l">科创50</td><td>1652.63</td><td class="up">↑ +2.88%</td><td class="up">上方</td><td class="up">上方</td><td class="wrap">三连阳领涨全场，半导体主升载体</td></tr>
+          <tr><td class="name l">中证1000</td><td>7687.59</td><td class="up">↑ +1.84%</td><td class="up">上方</td><td class="up">上方</td><td class="wrap">小盘活跃，涨停潮载体</td></tr>
+          <tr><td class="name l">北证50</td><td>1043.34</td><td class="up">↑ +1.79%</td><td class="up">上方</td><td class="gold-t">下方</td><td class="wrap">跟随修复</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hbox gold" style="margin-top:12px;font-size:.78rem">
+      <strong>量能总结：</strong>主力合计净流入-312.16亿（超大单-95.8亿、大单-216.35亿），散户净流出+358.73亿——<strong>机构/主力增量明确，节前资金仍在入场而非离场</strong>。
+    </div>
+  </div>
+
+  <!-- 2.2 板块动向 -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>2.2 板块资金动向（astock-flow实时数据）</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="l">方向</th><th class="l">代表板块</th><th>主力净流入</th><th>持续性</th><th>判断</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="name l"><span class="b b-r">★ 核心主线</span></td>
+            <td class="l">半导体封测/设备/芯片设计</td>
+            <td class="up"><strong>+198.54亿</strong></td>
+            <td><span class="b b-o">5日336亿沉淀</span></td>
+            <td class="up">唯一主线，坚守</td>
+          </tr>
+          <tr>
+            <td class="name l"><span class="b b-b">次主线</span></td>
+            <td class="l">光模块/光纤/硅片（光学光电子）</td>
+            <td class="blue-t">+182.20亿</td>
+            <td><span class="b b-b">延续中</span></td>
+            <td class="wrap">中际旭创领涨，关注接棒动向</td>
+          </tr>
+          <tr>
+            <td class="name l"><span class="b b-gold">政策博弈</span></td>
+            <td class="l">地产链（万科A）+ 汽车</td>
+            <td class="gold-t">+50.83亿 / +37.08亿</td>
+            <td><span class="b b-gold">政策预期驱动</span></td>
+            <td class="wrap">只做龙头，不参与跟风</td>
+          </tr>
+          <tr>
+            <td class="name l"><span class="b b-r">⚠ 次新/超跌</span></td>
+            <td class="l">沈鼓/托伦斯/金健米业</td>
+            <td class="up">+44.71亿</td>
+            <td><span class="b b-r">高危</span></td>
+            <td class="up">PE245倍，机构五席位清仓</td>
+          </tr>
+          <tr>
+            <td class="name l"><span class="b b-g">流出板块</span></td>
+            <td class="l">PCB / 元件 / 风电链</td>
+            <td class="dn">-60.2亿</td>
+            <td><span class="b b-r">兑现信号</span></td>
+            <td class="dn">旧主线高位兑现，坚决回避</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2.3 情绪周期 -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>2.3 情绪周期定位</div>
+    <div class="hbox red" style="margin-bottom:10px">
+      <strong>阶段判断：修复扩散高潮段（第三天）→ 进入末端区域</strong><br>
+      连板高度从6板降至6板，顶级游资单日分散四个方向（华天/金健/华盛昌/国芳），龙头效应弱化——这是"修复扩散末端"而非"主升加速段"的典型特征。节前窗口+高潮末端 = <strong>保住利润优先于进攻</strong>。
+    </div>
+    <div class="hbox" style="font-size:.78rem">
+      <strong>情绪温度读表：</strong>涨停78家（全部非ST）、跌停0家（9/11以来首次清零）、炸板率35.7%（25/103）、晋级率20.7%（12/47）、连板最高6板×2家。两融连续第二日大幅回流383.5亿，情绪温度≈80/100，赚钱效应仍处扩张期。
+    </div>
+  </div>
+
+  <!-- 2.4 技术面 -->
+  <div class="card">
+    <div class="card-title"><span class="dot blue"></span>2.4 技术面与盘后大事件</div>
+    <div class="hbox blue" style="margin-bottom:10px">
+      <strong>技术破局点：</strong>上证指数收3911.87，距MA60（3922-3923）仅一步之遥，中期趋势分水岭。创业板/科创50 MACD绿柱翻红，中期修复技术整体处于"趋胜修复"阶段，<strong>下周一放量能否突破3922是关键验证点</strong>。
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="l">盘后大事件</th><th>影响方向</th><th>下周一展望</th></tr></thead>
+        <tbody>
+          <tr><td class="l">浦东脑机接口元宇宙先导区 + 生物药数字化服务</td><td class="wrap">脑机接口/AI医疗</td><td class="wrap up">已提前反应，观察持续性</td></tr>
+          <tr><td class="l">安森美美发涨价函 +6.72%</td><td class="wrap">半导体封测/功率/模拟</td><td class="wrap up">半导体主线最强催化，持续看好</td></tr>
+          <tr><td class="l">地产政策预期（万科A涨停背后）</td><td class="wrap">地产链</td><td class="wrap gold-t">周末若有落地，周一可延续；否则兑现</td></tr>
+          <tr><td class="l">MiniMax宣布开源Code CLI</td><td class="wrap">AI应用/软件</td><td class="wrap blue-t">利好软件方向，注意前几日已有表现</td></tr>
+          <tr><td class="l">宁德时代回购4.56亿</td><td class="wrap">白马/新能源</td><td class="wrap dim">观察为主，电池链今日主力仍净流出</td></tr>
+          <tr><td class="l">节前效应（下周五9/25中秋节，仅4个交易日）</td><td class="wrap" style="color:var(--up)">全市场</td><td class="wrap up"><strong>历史规律：节前缩量+高位兑现，安全窗口只有2-3天</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 3  龙虎榜全景解码
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill">STEP 3</span>
+    <h2>龙虎榜全景解码</h2>
+    <span class="sub">58条记录 · 四方混战 · 主线聚焦</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>机构大买/大卖跟踪</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="l">个股</th><th>涨跌</th><th>龙虎净买</th><th>机构席位</th><th>上榜主因</th><th>调仓逻辑</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="l"><span class="b b-o">重点</span><br><strong>华天科技</strong><br><span style="color:var(--text3);font-size:.7rem">002185</span></td>
+            <td class="up">+1.89%</td><td class="up">+8.18亿</td><td class="up">买+1.18亿</td>
+            <td>偏离7%前5</td>
+            <td class="wrap">封测首板，北向1.86亿+国泰海通2.07亿+机构1.18亿+拉萨1.31亿——<strong>四方同席</strong>，半导体主线三军会师升级版</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-gold">地产</span><br><strong>万科A</strong><br><span style="color:var(--text3);font-size:.7rem">000002</span></td>
+            <td class="up">+9.93%</td><td class="up">+5.93亿</td><td class="dim">+938万</td>
+            <td>偏离7%前5</td>
+            <td class="wrap">地产龙头涨停，北向+游资+机构三路政策博弈资金，无机构持续性判断</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-b">次新</span><br><strong>惠科股份</strong><br><span style="color:var(--text3);font-size:.7rem">001399</span></td>
+            <td class="up">+10.02%</td><td class="up">+4.19亿</td><td class="dn">-856万</td>
+            <td>偏离7%前5</td>
+            <td class="wrap">显示面板次新，北向2.28亿（两榜），机构小卖，游资接力</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-r">⚠天量</span><br><strong>金健米业</strong><br><span style="color:var(--text3);font-size:.7rem">600127</span></td>
+            <td class="up">+9.98%</td><td class="up">+4.09亿</td><td class="dim">0</td>
+            <td>换手20%前5</td>
+            <td class="wrap up">换手47%天量，炸35次——A股最极端出货预警组合，无机构参与，纯博弈</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-r">🚫雷区</span><br><strong>托伦斯</strong><br><span style="color:var(--text3);font-size:.7rem">301583</span></td>
+            <td class="up">+20.03%</td><td class="up">+3.59亿</td><td class="up" style="color:var(--up)">卖-2.16亿</td>
+            <td>涨幅15%前5</td>
+            <td class="wrap up">次新20cm涨停，机构5席位净卖2.16亿——全市场最坚决卖方，回避</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-grey">光模</span><br><strong>铭普光磁</strong><br><span style="color:var(--text3);font-size:.7rem">002902</span></td>
+            <td class="up">+7.00%</td><td class="up">+2.69亿</td><td class="dn">-359万</td>
+            <td>换手20%前5</td>
+            <td class="wrap">磁材/光模块炸板，换手35.21%分歧，机构小卖，高位分歧回避</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>三类博弈样本解析</div>
     <div class="trio">
-      <div class="trio-card">
-        <div class="trio-title">超大单（机构）</div>
-        <div style="color:var(--dn);font-size:18px;font-weight:700">-95.8亿</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">机构减仓，谨慎信号</div>
+      <div class="trio-card trio-g">
+        <h4>样本一 · 四方同席（华天科技）</h4>
+        <p style="color:var(--text2)">北向+国泰海通+机构+拉萨四路同买，本周首次出现"散户与机构游资同席"结构——多空完全同向的合力票是主升期特征，聪明钱与博弈钱共享一桌，后续分歧时波动会放大。</p>
       </div>
-      <div class="trio-card">
-        <div class="trio-title">大单（游资）</div>
-        <div style="color:var(--dn);font-size:18px;font-weight:700">-216.3亿</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">游资观望</div>
+      <div class="trio-card trio-r">
+        <h4>样本二 · 机构撤离次新（托伦斯）</h4>
+        <p style="color:var(--text2)">20cm涨停被机构净卖2.16亿，与沈鼓集团首日"五席位清仓1.51亿"形成呼应。机构在次新妖股行情中是全市场最坚决卖方，历史上这类结构结局没有例外。</p>
       </div>
-      <div class="trio-card">
-        <div class="trio-title">中单（私募/小机构）</div>
-        <div style="color:var(--dn);font-size:18px;font-weight:700">-46.6亿</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">⚠️ 规避情绪明显，关注持续性</div>
+      <div class="trio-card trio-y">
+        <h4>样本三 · 游资广撒网（金健/国芳）</h4>
+        <p style="color:var(--text2)">顶级资金做超跌反弹可以，跟风者不能——这类品种行情性质是"日级反抽"，资金次日即可兑现，不追、不隔夜。</p>
       </div>
     </div>
   </div>
 </div>
 
-<!-- STEP3 -->
-<div class="section">
-  <div class="sec-head"><span>STEP 3</span><span>强势个股 · 今日表现解码</span></div>
-  <div class="sec-body">
-    <table class="tbl">
-      <thead><tr><th>标的</th><th>今日涨幅</th><th>上榜原因</th><th>主要买方</th><th>净买入估算</th><th>后市判断</th></tr></thead>
-      <tbody><tr>
-          <td><strong>老板电器</strong></td>
-          <td><span class="b-up">+1.89%</span></td>
-          <td>强势股</td>
-          <td>游资席位</td>
-          <td>+0.19亿</td>
-          <td><span class="b-warn">注意高位</span></td></tr><tr>
-          <td><strong>长江传媒</strong></td>
-          <td><span class="b-up">+2.74%</span></td>
-          <td>强势股</td>
-          <td>游资席位</td>
-          <td>+0.27亿</td>
-          <td><span class="b-warn">注意高位</span></td></tr><tr>
-          <td><strong>新朋股份</strong></td>
-          <td><span class="b-up">+3.18%</span></td>
-          <td>量价齐升</td>
-          <td>游资席位</td>
-          <td>+0.32亿</td>
-          <td><span class="b-warn">注意高位</span></td></tr><tr>
-          <td><strong>新北洋</strong></td>
-          <td><span class="b-up">+1.49%</span></td>
-          <td>强势股</td>
-          <td>游资席位</td>
-          <td>+0.15亿</td>
-          <td><span class="b-warn">注意高位</span></td></tr><tr>
-          <td><strong>环球印务</strong></td>
-          <td><span class="b-up">+1.90%</span></td>
-          <td>强势股</td>
-          <td>游资席位</td>
-          <td>+0.19亿</td>
-          <td><span class="b-warn">注意高位</span></td></tr></tbody>
-    </table>
-    <div class="hbox blue" style="margin-top:12px">
-      <strong>今日主线逻辑</strong>：—板块资金净流入+0.0亿，—等标的领涨，
-      游资短线主导，注意高位风险，严格止损。
+<!-- ═══════════════════════════════════════════
+     STEP 4  多空力量对比与明日推演
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill">STEP 4</span>
+    <h2>多空力量对比与明日推演</h2>
+  </div>
+
+  <!-- 4.1 多空清单 -->
+  <div class="two-col" style="margin-bottom:12px">
+    <div class="card" style="border-color:rgba(240,62,62,.25)">
+      <div class="card-title"><span class="dot" style="background:var(--up)"></span>多头底牌（积极信号）</div>
+      <ul class="cklist">
+        <li>放量13%+两融连续两日大幅回流（383.5亿），增量资金持续入场</li>
+        <li>半导体主线"三军会师+5日沉淀"：华天四方同席8.18亿，最强主线强度</li>
+        <li>技术全面修复：创业板/科创50站上MA20，中证1000三连升</li>
+        <li>跌停清零+涨停78家：9/11以来首次清零，赚钱效应扩张期</li>
+        <li>政策催化密集：浦东脑机、地产预期、安森美涨价、MiniMax开源</li>
+        <li>宁德时代回购4.56亿：白马股自我定价，稳核心资产预期</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(245,159,0,.25)">
+      <div class="card-title"><span class="dot" style="background:var(--gold)"></span>空头隐患（风险信号）</div>
+      <ul class="cklist">
+        <li style="color:var(--up)"><strong>节前窗口下周一开启（9/25中秋，仅4个交易日）</strong>，历史节前缩量+高位兑现+防御切换，安全窗口只有2-3天</li>
+        <li>次新妖股估值顶：沈鼓PE245倍两日12倍，机构五席位清仓——核按钮随时可触</li>
+        <li>高度收敛+龙头效应弱化：连板从6板→6板，游资单日分散四个方向</li>
+        <li>旧主线高位兑现：PCB净流出60.2亿，印制电路板-46.57亿，获利盘落袋</li>
+        <li>亏钱效应萌芽：天量分歧品种增多（金健炸35次+换手47%），炸板率35.7%偏高</li>
+        <li>权重股持续低迷：工行-0.86%、茅台-0.78%，指数依赖科技单引擎</li>
+      </ul>
     </div>
   </div>
-</div>
 
-<!-- STEP4 -->
-<div class="section">
-  <div class="sec-head"><span>STEP 4</span><span>多空推演 · 情景分析与盯盘要点</span></div>
-  <div class="sec-body">
-    <div class="bb-grid">
-      <div class="bb-box bb-bull">
-        <div class="bb-title" style="color:var(--dn)">多方依据</div>
-        <ul><li>北向资金 +0.0亿，外资观望</li></ul>
+  <!-- 4.2 情景推演 -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>4.2 下周一（9/21）情景推演 — 概率权重法</div>
+    <div class="sc-grid">
+
+      <!-- ── 情景 A ── -->
+      <div class="sc sc-a">
+        <div class="sc-head">
+          <svg class="sc-donut" width="56" height="56" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(240,62,62,.15)" stroke-width="6"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="#f03e3e" stroke-width="6"
+              stroke-dasharray="138.2" stroke-dashoffset="96.7"
+              stroke-linecap="round" transform="rotate(-90 28 28)"/>
+            <text x="28" y="32" text-anchor="middle" fill="#f03e3e" font-size="13" font-weight="800" font-family="-apple-system,sans-serif">30%</text>
+          </svg>
+          <div class="sc-meta">
+            <div class="sc-label">情景 A</div>
+            <div class="sc-title">高潮延续<br>主线聚焦</div>
+          </div>
+        </div>
+        <div class="sc-body">
+          <div class="sc-section-lbl">触发条件</div>
+          <ul>
+            <li>沈鼓竞价跌幅&lt;5%，次新情绪稳定</li>
+            <li>华天竞价高开3%+快速晋级2板</li>
+            <li>华瓷/锡华晋级5板，高度重新打开</li>
+            <li>涨停维持60家+，跌停保持清零</li>
+            <li>量能维持1.9万亿以上</li>
+          </ul>
+        </div>
+        <div class="sc-action">
+          <div class="sc-action-lbl">应对策略</div>
+          仓位5-6成，主攻半导体；华天2板确认打板 / 长电低吸 / 兆易低吸；半导体ETF可配置替代不选股。
+        </div>
       </div>
-      <div class="bb-box bb-bear">
-        <div class="bb-title" style="color:var(--up)">空方风险</div>
-        <ul><li>主力净流出 -312.2亿，资金偏空</li><li>超大单净流出 -95.8亿，机构减仓信号</li><li>中单净流出 -46.6亿，私募/小机构规避</li><li>散户净流入 +358.7亿，追涨风险升温</li></ul>
+
+      <!-- ── 情景 B （基准）── -->
+      <div class="sc sc-b">
+        <span class="sc-base-badge">⚡ 基准情景</span>
+        <div class="sc-head">
+          <svg class="sc-donut" width="56" height="56" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(245,159,0,.15)" stroke-width="6"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="#f59f00" stroke-width="6"
+              stroke-dasharray="138.2" stroke-dashoffset="69.1"
+              stroke-linecap="round" transform="rotate(-90 28 28)"/>
+            <text x="28" y="32" text-anchor="middle" fill="#f59f00" font-size="13" font-weight="800" font-family="-apple-system,sans-serif">50%</text>
+          </svg>
+          <div class="sc-meta">
+            <div class="sc-label">情景 B</div>
+            <div class="sc-title">高位分歧<br>节前缩量开始</div>
+          </div>
+        </div>
+        <div class="sc-body">
+          <div class="sc-section-lbl">触发条件</div>
+          <ul>
+            <li>沈鼓高开低走，次新分化</li>
+            <li>华天炸板或高开低走，半导体内部分化</li>
+            <li>涨停回落至40-60家，跌停回升3-8家</li>
+            <li>量能萎缩超20%（低于1.7万亿）</li>
+            <li>地产链无政策落地，万科冲高回落</li>
+          </ul>
+        </div>
+        <div class="sc-action">
+          <div class="sc-action-lbl">应对策略</div>
+          仓位收缩至3-4成，只留半导体核心（华天分歧低吸 / 长电持有），其余全部兑现；现金比例提至6成+，为节前最后三个交易日保留弹药。
+        </div>
       </div>
+
+      <!-- ── 情景 C ── -->
+      <div class="sc sc-c">
+        <div class="sc-head">
+          <svg class="sc-donut" width="56" height="56" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(143,163,184,.12)" stroke-width="6"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="#556d85" stroke-width="6"
+              stroke-dasharray="138.2" stroke-dashoffset="110.6"
+              stroke-linecap="round" transform="rotate(-90 28 28)"/>
+            <text x="28" y="32" text-anchor="middle" fill="#8fa3b8" font-size="13" font-weight="800" font-family="-apple-system,sans-serif">20%</text>
+          </svg>
+          <div class="sc-meta">
+            <div class="sc-label">情景 C</div>
+            <div class="sc-title">妖股崩塌<br>情绪反噬</div>
+          </div>
+        </div>
+        <div class="sc-body">
+          <div class="sc-section-lbl">触发条件</div>
+          <ul>
+            <li>沈鼓开盘跌停或快速跳水-15%+</li>
+            <li>金健米业/闽东电力核按钮，天地板</li>
+            <li>涨停骤降至40家以下，跌停扩至10+</li>
+            <li>两市量能萎缩至1.6万亿以下</li>
+          </ul>
+        </div>
+        <div class="sc-action">
+          <div class="sc-action-lbl">应对策略</div>
+          无条件降仓至2成以下；不抢次新 / 不抢高标 / 不参与超跌反弹；以MA5为生命线（破位即离场）；等节前最后1-2个交易日冰点信号再决定节后布局。
+        </div>
+      </div>
+
     </div>
 
-    <strong style="font-size:13px;color:var(--muted);display:block;margin-bottom:8px">▍三情景推演</strong>
-    <div class="sc-row">
-      <div class="sc a">
-        <div class="sc-label">情景 A · 延续做多</div>
-        <div class="sc-prob">5%</div>
-        <div class="sc-desc">超跌反弹，资金回流，压制位测试<br><br><strong>操作</strong>：轻仓参与，严控追高，以观望为主</div>
-      </div>
-      <div class="sc b">
-        <div class="sc-label">情景 B ⚡ 震荡（基准）</div>
-        <div class="sc-prob">35%</div>
-        <div class="sc-desc">多空分歧，宽幅区间震荡，等待方向选择<br><br><strong>操作</strong>：控仓40-60%，高抛低吸，不追涨不杀跌</div>
-      </div>
-      <div class="sc c">
-        <div class="sc-label">情景 C · 回调风险</div>
-        <div class="sc-prob">60%</div>
-        <div class="sc-desc">高位连板股集中炸板，资金加速撤离，指数跌破支撑<br><br><strong>操作</strong>：立即降仓至3成以下，严守止损，等待企稳</div>
-      </div>
-    </div>
-
-    <div class="donut-wrap">
-      <svg class="donut" viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3.8"/>
-        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#0ca678" stroke-width="3.8"
-          stroke-dasharray="5 95" stroke-dashoffset="25"/>
-        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#d08700" stroke-width="3.8"
-          stroke-dasharray="35 65" stroke-dashoffset="20"/>
-        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e03131" stroke-width="3.8"
-          stroke-dasharray="60 40" stroke-dashoffset="-15"/>
-      </svg>
-      <div class="donut-legend">
-        <div><span style="color:var(--dn)">■</span> 情景A 延续做多 <strong>5%</strong></div>
-        <div><span style="color:var(--gold)">■</span> 情景B 震荡整理 <strong>35%</strong> ⚡基准</div>
-        <div><span style="color:var(--up)">■</span> 情景C 回调风险 <strong>60%</strong></div>
-      </div>
-    </div>
-
-    <strong style="font-size:13px;color:var(--muted);display:block;margin-top:16px">▍明日盯盘五件事</strong>
-    <div class="watch5">
-      <div class="w5-item"><div class="w5-num">1</div><div class="w5-body"><span class="w5-title">—板块开盘30分钟主力流向</span> — 净流入>15亿则延续，净流出则当日观望</div></div>
-      <div class="w5-item"><div class="w5-num">2</div><div class="w5-body"><span class="w5-title">超大单方向确认</span> — 开盘30分钟超大单净流入>30亿则情景A概率提升，反之降低</div></div>
-      <div class="w5-item"><div class="w5-num">3</div><div class="w5-body"><span class="w5-title">中单资金方向</span> — 今日-46.6亿，若明日转正则多头信号增强</div></div>
-      <div class="w5-item"><div class="w5-num">4</div><div class="w5-body"><span class="w5-title">沪指关键支撑</span> — 若跌破整数关口，触发情景C，执行降仓操作</div></div>
-      <div class="w5-item"><div class="w5-num">5</div><div class="w5-body"><span class="w5-title">北向资金</span> — 若净流出超-20亿，外资撤离信号明确，建议降低仓位</div></div>
+    <!-- 概率总计提示 -->
+    <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-top:14px;padding:10px 14px;background:var(--surface2);border-radius:8px;font-size:.76rem;color:var(--text3)">
+      <span>A+B+C = 100%</span>
+      <span style="color:var(--border2)">|</span>
+      <span>概率基于今日量能 · 席位散射结构 · 周五+节前窗口双重时间压力</span>
     </div>
   </div>
-</div>
 
-<!-- STEP5 -->
-<div class="section">
-  <div class="sec-head"><span>STEP 5</span><span>作战计划 · 个股操作与仓位管理</span></div>
-  <div class="sec-body">
-    <table class="tbl">
-      <thead><tr><th>标的</th><th>方向</th><th>理由</th><th>操作</th><th>仓位</th></tr></thead>
-      <tbody><tr><td colspan='5' style='text-align:center;color:#6b7280'>今日无明确主线信号</td></tr></tbody>
-    </table>
-    <div class="hbox gold" style="margin-top:12px">
-      <strong>仓位风控原则</strong><br>
-      整体仓位建议20-40%，以观察为主，等待缩量企稳，勿抄底加仓。
-    </div>
-    <ol class="gate">
-      <li>高位连板股（3板以上）次日严禁追涨，等待回踩再入</li>
-      <li>单票亏损达-5%，无条件止损，不恋战</li>
-      <li>中单若明日继续净流出超-40亿，全部降至3成</li>
-      <li>主线板块开盘30分钟净流出则当日观望，不操作</li>
-      <li>保持耐心，等待高确定性机会，宁可错过不做错</li>
+  <!-- 盯盘五件事 -->
+  <div class="card">
+    <div class="card-title"><span class="dot gold"></span>下周一盯盘五件事（9月21日验证清单）</div>
+    <ol class="watch5">
+      <li><strong>9:15-9:25 竞价</strong> — 沈鼓集团（情绪总开关：跌停/深水=情景C）、华天科技（半导体总开关：高开3%+带量=情景A）</li>
+      <li><strong>9:30-9:45 跌停数</strong> — 15分钟内跌停&gt;5家=情绪反转预警，立即执行情景C策略</li>
+      <li><strong>10:00后 成交额</strong> — 两市是否达上周五同时段90%（节前缩量是否立即兑现）</li>
+      <li><strong>盘中 天量品种</strong> — 金健米业/闽东电力走势；若集体杀跌=高位股集体兑现预警</li>
+      <li><strong>14:30 尾盘成色</strong> — 华天科技/长电科技能否守住日内均线（半导体主线的真实强度）</li>
     </ol>
   </div>
 </div>
 
-<!-- STEP6 -->
-<div class="section">
-  <div class="sec-head"><span>STEP 6</span><span>雷区名单 · 风险与危机预警</span></div>
-  <div class="sec-body">
-    <div class="mine-list">
-      <div class="mine high">
-          <div class="mine-title">🔴 系统性预警 · 中单净流出 -46.6亿</div>
-          <div class="mine-body">私募/小机构规避情绪明显，若明日持续净流出超-40亿，建议降仓至3成以下。</div>
-        </div>
-      <div class="mine mid">
-        <div class="mine-title">🟡 操作纪律提醒</div>
-        <div class="mine-body">不追涨停次日高开 | 连板3板以上不新仓 | 单票亏损-5%无条件止损 | 不满仓操作 | 盘前情绪亢奋时降低一档仓位</div>
+<!-- ═══════════════════════════════════════════
+     STEP 5  明日机会与交易计划
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill">STEP 5</span>
+    <h2>明日机会与交易计划（可执行）</h2>
+  </div>
+
+  <!-- 核心主线作战表 -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>核心主线 — 半导体全产业链（5日沉淀336亿）</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="l">标的</th><th>身位</th><th>周一剧本</th><th>介入方式</th><th>风控</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="l"><span class="b b-o">首选</span><br><strong>华天科技 002185</strong></td>
+            <td class="wrap">封测首板 · 四方同席</td>
+            <td class="wrap">竞价高开3%-5%缩量企稳=低吸；快速晋级2板=打板确认；炸板=全部情景降级</td>
+            <td>低吸+打板各半仓</td>
+            <td class="wrap up">-7%止损；高开8%+放弃；开盘15分钟翻绿放弃</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-o">首选</span><br><strong>长电科技 600584</strong></td>
+            <td class="wrap">封测中军</td>
+            <td class="wrap">今日+7.75%未涨停，人气113位。不破今日低点=低吸确认</td>
+            <td>低吸</td>
+            <td class="wrap up">-7%止损</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-b">关注</span><br><strong>兆易创新 603986</strong></td>
+            <td class="wrap">存储芯片设计</td>
+            <td class="wrap">今日+4.68%，存储涨价逻辑，回踩低吸优于追高</td>
+            <td>低吸</td>
+            <td class="wrap up">-7%止损</td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-grey">替代</span><br><strong>半导体ETF 512480</strong></td>
+            <td class="wrap">板块配置</td>
+            <td class="wrap">不选股者的替代方案；情景B分化时ETF回撤远小于个股</td>
+            <td>分批低吸</td>
+            <td class="wrap up">-5%止损</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hbox" style="margin-top:12px;font-size:.78rem">
+      <strong>主线操作总纲：</strong>周一胜负关键——华天科技能否晋级2板。晋级=情景A，大力加仓；炸板=情景B，收缩仓位。<br>
+      <strong style="color:var(--up)">节前总仓位：周一≤5成，周一起≤4成；无论浮盈浮亏，节前保留≥5成现金。</strong>
+    </div>
+  </div>
+
+  <!-- 次主线 -->
+  <div class="card">
+    <div class="card-title"><span class="dot blue"></span>次主线与低吸方向（仓位严控）</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="l">方向</th><th class="l">代表标的</th><th class="l">逻辑</th><th>仓位上限</th><th>硬条件</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="l gold-t">地产链</td>
+            <td class="l">万科A（000002）</td>
+            <td class="wrap">政策博弈唯一可参考标的，北向/游资/机构三路</td>
+            <td>≤2成</td>
+            <td class="wrap">高开3%+量能=持有；高开低走15min翻绿即离场</td>
+          </tr>
+          <tr>
+            <td class="l blue-t">光通信测试</td>
+            <td class="l">华盛昌（002984）</td>
+            <td class="wrap">次新+AI硬件新分支，机构有卖出席位，仅做情绪接力</td>
+            <td>≤1成</td>
+            <td class="wrap">光模块方向回暖+带量涨停=可轻仓，否则放弃</td>
+          </tr>
+          <tr>
+            <td class="l dn">文旅超跌</td>
+            <td class="l">桂林旅游（000978）</td>
+            <td class="wrap">机构净买1.10亿+浦东新政超跌反抽，只做龙头弱转强</td>
+            <td>≤1成</td>
+            <td class="wrap">次日无条件兑现，不留过夜</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 仓位风控 -->
+  <div class="card" style="border-color:rgba(255,107,53,.3)">
+    <div class="card-title"><span class="dot"></span>仓位与风控总方案（节前四天）</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">周一总仓上限</div>
+        <div style="font-size:1.8rem;font-weight:900;color:var(--gold)">≤5成</div>
+        <div style="font-size:.68rem;color:var(--text3)">B/C直接降至3成</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">周一起上限</div>
+        <div style="font-size:1.8rem;font-weight:900;color:var(--accent)">≤4成</div>
+        <div style="font-size:.68rem;color:var(--text3)">节前两日无条件</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">单票止损线</div>
+        <div style="font-size:1.8rem;font-weight:900;color:var(--up)">-7%</div>
+        <div style="font-size:.68rem;color:var(--text3)">机械执行不手软</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">节前第一目标</div>
+        <div style="font-size:1.4rem;font-weight:900;color:var(--down)">保住利润</div>
+        <div style="font-size:.68rem;color:var(--text3)">不是再赚一轮</div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- SERENITY -->
-<div class="section">
-  <div class="sec-head"><span>SERENITY</span><span>供应链卡脖子扫描 · 今日主线标的评估</span></div>
-  <div class="sec-body">
-    <table class="tbl">
-      <thead><tr><th>标的</th><th>逻辑</th><th>资金面</th><th>操作建议</th><th>评级</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="hbox purple" style="margin-top:12px">
-      今日—板块整体净流入+0.0亿，—领涨，关注板块内龙头的持续性和换手情况。
+    <div style="padding:12px 16px;background:rgba(245,159,0,.08);border-radius:8px;text-align:center;font-size:.88rem;font-weight:700;color:var(--gold)">
+      节前四天的第一目标是保住修复行情的利润，而不是再赚一轮。
     </div>
   </div>
 </div>
 
-<div style="text-align:center;color:var(--muted);font-size:11px;padding:16px 0 8px">
-  A股深度复盘 · 2026-09-22 · 数据来源：同花顺 / 东方财富 · 仅供参考，不构成投资建议
+<!-- ═══════════════════════════════════════════
+     STEP 6  雷区名单
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill">STEP 6</span>
+    <h2>必须回避的标的与雷区</h2>
+    <span class="sub">保护本金比赚钱更重要</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--up)"></span>次新妖股崩溃预警（周末发酵后最高风险源）</div>
+    <div class="mine"><span class="mine-ico">💣</span><div><div class="mine-nm">沈鼓集团（601090）</div><div class="mine-desc">两日12倍、PE 245倍、PB 26倍，总市值1796.65亿（可比公司动力股约16亿）。机构专用五席位连续清一色卖出。<strong style="color:var(--up)">一个价位都不参与，只把它当情绪温度计。</strong></div></div></div>
+    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">托伦斯（301583）</div><div class="mine-desc">20cm涨停被机构净卖2.16亿——机构对次新泡沫的明牌态度，全市场最坚决卖方，回避。</div></div></div>
+    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">沐曦股份（688802）</div><div class="mine-desc">机构净卖1.95亿、股价仅+1.52%滞涨——次新+GPU高位滞涨，回避。</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--gold)"></span>天量分歧品种（天地板候选）</div>
+    <div class="mine"><span class="mine-ico">💥</span><div><div class="mine-nm">金健米业（600127）</div><div class="mine-desc">2板炸35次、换手47.06%——<strong style="color:var(--up)">换手47%+炸35次是A股最极端出货预警组合之一</strong>，周一无论高低开均有天地板风险，坚决回避。</div></div></div>
+    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">闽东电力（000993）</div><div class="mine-desc">炸板11次收+9.07%，高位复，偏离值仍高，风电跟风股已先杀——高位反复品种最危险，回避。</div></div></div>
+    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">内蒙新华（603230）</div><div class="mine-desc">3板炸6次+净卖7537万，烂板晋级不可持续，回避。</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--text3)"></span>旧主线兑现+机构抛售雷区（反抽不参与）</div>
+    <div class="wl-grid">
+      <div class="wl-item danger"><div class="wl-nm">PCB / 元件链</div><div class="wl-sub">PCB净流出60.2亿、印制电路板-46.57亿、超声电子-3.47%、双星新材-1.20%、中晶炸板——反抽不参与。</div></div>
+      <div class="wl-item danger"><div class="wl-nm">风电链</div><div class="wl-sub">天顺风能-5.63%（机构净卖8362万），闽东断板后板块真空期，回避。</div></div>
+      <div class="wl-item danger"><div class="wl-nm">万邦医药（301520）</div><div class="wl-sub">-3.93%+机构净卖4069万，医药退潮分化，回避。</div></div>
+      <div class="wl-item danger"><div class="wl-nm">铭普光磁（002902）</div><div class="wl-sub">炸板+换手35.21%，机构净卖3599万——高位分歧，回避。</div></div>
+      <div class="wl-item danger"><div class="wl-nm">国芳集团（601086）</div><div class="wl-sub">跌停后反抽涨停，但机构零参与+拉萨净卖——反抽是逃命波，明日冲高即兑现，勿恋战。</div></div>
+      <div class="wl-item"><div class="wl-nm">节前板块性回避</div><div class="wl-sub">农业/养殖（种子-1.52%）、国有大行/利率（全场垫底）、汽车经销商链（资金持续流出）。</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="border-color:rgba(245,159,0,.3)">
+    <div class="card-title"><span class="dot gold"></span>节前四天纪律审查 — 周一开盘五道关卡</div>
+    <ol class="gate">
+      <li>主线方向是否切换？（PCB/风电/农业→放弃）</li>
+      <li>龙虎榜机构/大游资是否净卖？（托伦斯/沐曦/中晶/天顺→放弃）</li>
+      <li>是否属于次新妖股或天量分歧品种？（沈鼓/金健/闽东→放弃）</li>
+      <li>介入条件是否满足？（否则放弃）</li>
+      <li>是否符合节前仓位上限？（周一起≤5成，周一起≤4成）</li>
+    </ol>
+  </div>
 </div>
+
+<!-- ═══════════════════════════════════════════
+     SERENITY  供应链卡脖子扫描
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill" style="background:var(--purple)">SERENITY</span>
+    <h2>供应链卡脖子扫描</h2>
+    <span class="sub">今日触发：半导体封测产业链</span>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th class="l">公司</th><th class="l">卡住的环节</th><th>证据强度</th><th>市场定价</th><th>优先级</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="l"><span class="b b-o">重点</span> <strong>华天科技 002185</strong></td>
+            <td class="wrap">先进封装（SiP/Chiplet），安森美涨价传导直接受益，国内封测产能扩张最快者之一</td>
+            <td><span class="b b-o">强</span> 四方同席8.18亿</td>
+            <td class="gold-t">刚开始定价（首板），未充分反映</td>
+            <td><span class="b b-o">高</span></td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-b">关注</span> <strong>长电科技 600584</strong></td>
+            <td class="wrap">高端封测（FCBGA/WLP），全球前五封测厂，AI芯片封装受益</td>
+            <td><span class="b b-b">中</span> 机构跟买+7.75%</td>
+            <td class="dim">PE合理区间，中等定价</td>
+            <td><span class="b b-b">中</span></td>
+          </tr>
+          <tr>
+            <td class="l"><span class="b b-b">关注</span> <strong>兆易创新 603986</strong></td>
+            <td class="wrap">NOR Flash国内龙头，存储国产替代+涨价逻辑叠加</td>
+            <td><span class="b b-b">中</span> 5日主力持续流入</td>
+            <td class="dn">市场已有部分定价，PE偏高</td>
+            <td><span class="b b-b">中</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hbox purple" style="margin-top:12px;font-size:.78rem">
+      <strong style="color:var(--purple)">价值链定位：</strong>今日涨的主要是"封测层"和"芯片设计层"，尚未传导到技术壁垒最高的"设备层"（中微公司/北方华创）。资金仍在情绪+政策催化阶段。<br>
+      <strong style="color:var(--purple)">3个月可验证：</strong>①华天Q3营收同比增速是否超25%；②国内封测企业是否跟进提价公告；③兆易NOR Flash出货量是否环比增10%+。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     校正  前两日推演验证打分
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hd">
+    <span class="step-pill" style="background:var(--gold);color:#000">校正</span>
+    <h2>前两日推演验证打分</h2>
+    <span class="sub">自我校正机制</span>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px">
+      <div style="flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:8px;padding:16px 20px;text-align:center;min-width:120px">
+        <div class="score-num">75</div>
+        <div style="font-size:.72rem;color:var(--text3)">/ 100 · 综合自评</div>
+        <div style="font-size:.7rem;color:var(--text3);margin-top:2px">（及格偏上）</div>
+      </div>
+      <div style="flex:1;min-width:200px;font-size:.82rem;line-height:1.75">
+        <strong style="color:var(--gold)">最大亮点：</strong>9/17竞价执行单"总关纪律"——通鼎翔翻绿即取消全部买入，条件单纪律本周第三次验证有效，回避了主线分化杀伤。<br><br>
+        <strong style="color:var(--up)">最大教训：</strong>修复行情的主线是<strong>"轮动接力"而非"龙头恒强"</strong>——光模块→PCB→半导体封测的接力节奏，死守一个方向会错过切换。应用"5日主力净流入榜+当日龙虎榜净买第一"的组合信号跟踪主线迁移（本报告2.2已固化此方法）。
+      </div>
+    </div>
+    <div class="hbox gold" style="font-size:.78rem">
+      <strong style="color:var(--gold)">固化改进：</strong>从今日起将"5日主力净流入榜+当日龙虎榜净买第一"作为主线切换标准判断方法，写入2.2板块分析框架，下期报告继续验证准确率。
+    </div>
+  </div>
+</div>
+
+<div class="disclaimer">
+  ⚠️ 以上复盘与推演仅基于公开数据及历史量价模型分析，不构成任何买卖建议。市场瞬息万变，请结合自身风险承受能力独立决策。
+</div>
+
+</div><!-- /wrap -->
+
+<footer>
+  A股深度复盘报告 · 2026-09-22 · 优化版六步框架（情景推演 + 雷区名单 + 自评校正）<br>
+  数据来源：东方财富 astock-flow · 同花顺龙虎榜 · 自动生成 · 仅供参考
+</footer>
 
 </body>
 </html>
