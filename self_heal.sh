@@ -81,10 +81,23 @@ fi
 echo "[$TS] 生成复盘报告..." >> "$LOG"
 $PYTHON "$REPO_DIR/gen_review.py" >> "$LOG" 2>&1
 if [ $? -eq 0 ]; then
-    git add review/ >> "$LOG" 2>&1
-    git diff --cached --quiet || git commit -m "复盘报告: $DATE" >> "$LOG" 2>&1
-    git push origin main >> "$LOG" 2>&1
-    echo "[$TS] ✅ 复盘报告已生成并推送" >> "$LOG"
+    # 校验报告文件：检查关键数据点是否写入
+    REPORT_FILE="review/$DATE/review_$DATE.html"
+    if [ -f "$REPORT_FILE" ]; then
+        FILE_SIZE=$(wc -c < "$REPORT_FILE")
+        # 检查报告里是否包含当日日期和主力资金数据
+        if grep -q "$DATE" "$REPORT_FILE" && grep -q "主力" "$REPORT_FILE"; then
+            echo "[$TS] ✅ 报告校验通过 ($FILE_SIZE bytes)" >> "$LOG"
+            git add review/ >> "$LOG" 2>&1
+            git diff --cached --quiet || git commit -m "复盘报告: $DATE" >> "$LOG" 2>&1
+            git push origin main >> "$LOG" 2>&1
+            echo "[$TS] ✅ 复盘报告已生成并推送" >> "$LOG"
+        else
+            echo "[$TS] ❌ 报告校验失败：缺少关键数据" >> "$LOG"
+        fi
+    else
+        echo "[$TS] ❌ 报告文件未生成: $REPORT_FILE" >> "$LOG"
+    fi
 else
     echo "[$TS] ⚠️ 复盘报告生成失败，检查 gen_review.py" >> "$LOG"
 fi
