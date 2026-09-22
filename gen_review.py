@@ -1,305 +1,65 @@
-<!DOCTYPE html>
+#!/usr/bin/env python3
+"""基于9/18 CSS框架 + 当日真实数据 生成报告
+用法: python3 gen_review.py [YYYY-MM-DD]
+不传日期则自动取 data.json 最新日期
+"""
+import json, sys
+from pathlib import Path
+
+d = json.load(open('data/data.json'))
+if len(sys.argv) > 1:
+    TODAY = sys.argv[1]
+else:
+    TODAY = list(d.keys())[0]  # 最新日期（dates.json 降序）
+if TODAY not in d:
+    print(f"❌ {TODAY} 无数据，可用: {list(d.keys())[:5]}")
+    sys.exit(1)
+day = d[TODAY]
+
+# 动态日期计算
+from datetime import datetime, timedelta
+today_dt = datetime.strptime(TODAY, '%Y-%m-%d')
+weekday_cn = ['周一','周二','周三','周四','周五','周六','周日'][today_dt.weekday()]
+# 明日日期
+tomorrow = (today_dt + timedelta(days=1)).strftime('%Y-%m-%d')
+# 前日日期（用于策略验证标题）
+prev_date = day.get('strategy_review', {}).get('prev_date', (today_dt - timedelta(days=1)).strftime('%Y-%m-%d'))
+# 日期短格式（M/D）
+today_short = f"{today_dt.month}/{today_dt.day}"
+prev_short = f"{(today_dt - timedelta(days=1)).month}/{(today_dt - timedelta(days=1)).day}"
+tomorrow_short = f"{(today_dt + timedelta(days=1)).month}/{(today_dt + timedelta(days=1)).day}"
+sr = day['strategy_review']
+mk = day['market']
+em = day['em_sectors']
+ths = day['ths_sectors']
+reco = day['stock_reco']
+
+# 策略复盘详情
+details = sr['detail']
+rows_html = ''.join(
+    f'<tr><td class="l">{x["name"]}</td><td>{x["score"]}</td>'
+    f'<td>{x["prev_price"]}</td><td>{x["today_price"]}</td>'
+    f'<td class="{"up" if x["up"] else "dn"}">'
+    f'{"+" if x["up"] else ""}{x["gain"]:.2f}%</td>'
+    f'<td class="{"up" if x["up"] else "dn"}">'
+    f'{"✓" if x["up"] else "✗"}</td></tr>'
+    for x in sorted(details, key=lambda x: -x['gain'])
+)
+
+# 读取 9/18 模版获取完整 CSS
+with open('review/2026-09-18/review_2026-09-18.html', encoding='utf-8') as f:
+    template = f.read()
+css_start = template.find('<style>')
+css_end = template.find('</style>') + len('</style>')
+css_block = template[css_start:css_end]
+
+html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A股深度复盘 · 2026-09-22</title>
-<style>
-:root {
-  --bg: #f0f2f5;
-  --surface: #ffffff;
-  --surface2: #f7f8fa;
-  --border: #e2e8f0;
-  --border2: #cbd5e1;
-  --up: #e03131;
-  --up2: #f03e3e;
-  --down: #0ca678;
-  --accent: #e8580a;
-  --accent2: #f76707;
-  --gold: #d08700;
-  --blue: #1c7ed6;
-  --purple: #9c36b5;
-  --text: #1a202c;
-  --text2: #4a5568;
-  --text3: #718096;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,'PingFang SC','Helvetica Neue',sans-serif;font-size:14px;line-height:1.5}
-
-/* ── NAV ─────────────────────────────── */
-.nav{
-  position:sticky;top:0;z-index:200;
-  background:rgba(255,255,255,.95);backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border);
-  padding:0 20px;height:48px;
-  display:flex;align-items:center;gap:16px;
-  box-shadow:0 1px 8px rgba(0,0,0,.08);
-}
-.nav-logo{font-size:.9rem;font-weight:800;color:var(--accent);white-space:nowrap;letter-spacing:.5px}
-.nav-divider{width:1px;height:20px;background:var(--border)}
-.nav-tag{
-  padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700;
-  background:rgba(224,49,49,.1);color:var(--up);border:1px solid rgba(224,49,49,.25);
-  white-space:nowrap;
-}
-.nav-indices{display:flex;gap:16px;margin-left:auto}
-.nav-idx{font-size:.75rem;color:var(--text2);white-space:nowrap}
-.nav-idx b{color:var(--up);font-weight:700}
-@media(max-width:640px){.nav-indices{display:none}}
-
-/* ── LAYOUT ──────────────────────────── */
-.wrap{max-width:980px;margin:0 auto;padding:28px 16px}
-
-/* ── SECTION ─────────────────────────── */
-.sec{margin-bottom:36px}
-.sec-hd{
-  display:flex;align-items:center;gap:10px;
-  margin-bottom:18px;padding-bottom:12px;
-  border-bottom:2px solid var(--border);
-}
-.step-pill{
-  padding:3px 10px;border-radius:6px;
-  background:var(--accent);color:#fff;
-  font-size:.68rem;font-weight:800;letter-spacing:.5px;
-  flex-shrink:0;
-}
-.sec-hd h2{font-size:1.1rem;font-weight:700;color:var(--text)}
-.sec-hd .sub{font-size:.78rem;color:var(--text3);margin-left:auto;white-space:nowrap}
-
-/* ── STAT GRID ───────────────────────── */
-.stat-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:10px}
-.stat-row2{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-@media(max-width:700px){.stat-row{grid-template-columns:repeat(3,1fr)}.stat-row2{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:400px){.stat-row{grid-template-columns:repeat(2,1fr)}}
-
-.kpi{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:10px;padding:14px 12px;text-align:center;
-  position:relative;overflow:hidden;transition:box-shadow .2s;
-  box-shadow:0 1px 4px rgba(0,0,0,.06);
-}
-.kpi:hover{box-shadow:0 3px 10px rgba(0,0,0,.1)}
-.kpi::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:var(--border);
-}
-.kpi.up::before{background:var(--up)}
-.kpi.gold::before{background:var(--gold)}
-.kpi.blue::before{background:var(--blue)}
-.kpi .lbl{font-size:.68rem;color:var(--text3);margin-bottom:6px;letter-spacing:.3px}
-.kpi .num{font-size:1.35rem;font-weight:800;line-height:1.1}
-.kpi .chg{font-size:.72rem;margin-top:4px}
-.kpi.up .num,.kpi.up .chg{color:var(--up)}
-.kpi.gold .num{color:var(--gold)}
-.kpi.gold .chg{color:var(--text2)}
-.kpi.blue .num{color:var(--blue)}
-
-/* ── CARD ────────────────────────────── */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
-.card-title{
-  display:flex;align-items:center;gap:8px;
-  font-size:.8rem;font-weight:700;color:var(--text2);
-  margin-bottom:14px;text-transform:uppercase;letter-spacing:.6px;
-}
-.card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
-.card-title .dot.gold{background:var(--gold)}
-.card-title .dot.blue{background:var(--blue)}
-.card-title .dot.purple{background:var(--purple)}
-.card-title .dot.green{background:var(--down)}
-
-/* ── HIGHLIGHT BOX ───────────────────── */
-.hbox{
-  border-radius:8px;padding:12px 14px;font-size:.83rem;line-height:1.75;
-  border-left:3px solid var(--accent);
-  background:rgba(232,88,10,.05);
-}
-.hbox.gold{border-color:var(--gold);background:rgba(208,135,0,.05)}
-.hbox.red{border-color:var(--up);background:rgba(224,49,49,.05)}
-.hbox.green{border-color:var(--down);background:rgba(12,166,120,.05)}
-.hbox.blue{border-color:var(--blue);background:rgba(28,126,214,.05)}
-.hbox.purple{border-color:var(--purple);background:rgba(156,54,181,.05)}
-.hbox + .hbox{margin-top:10px}
-
-/* ── INLINE BADGES ───────────────────── */
-.b{display:inline-block;padding:1px 7px;border-radius:4px;font-size:.68rem;font-weight:700;vertical-align:middle;margin:1px}
-.b-o{background:rgba(232,88,10,.1);color:var(--accent);border:1px solid rgba(232,88,10,.3)}
-.b-r{background:rgba(224,49,49,.1);color:var(--up);border:1px solid rgba(224,49,49,.3)}
-.b-g{background:rgba(12,166,120,.1);color:var(--down);border:1px solid rgba(12,166,120,.25)}
-.b-b{background:rgba(28,126,214,.1);color:var(--blue);border:1px solid rgba(28,126,214,.25)}
-.b-gold{background:rgba(208,135,0,.1);color:var(--gold);border:1px solid rgba(208,135,0,.25)}
-.b-grey{background:rgba(74,85,104,.08);color:var(--text2);border:1px solid rgba(74,85,104,.18)}
-.b-pur{background:rgba(156,54,181,.1);color:var(--purple);border:1px solid rgba(156,54,181,.25)}
-
-/* ── TABLE ───────────────────────────── */
-.tbl-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.8rem}
-th{
-  background:#f1f5f9;color:var(--text3);
-  padding:9px 10px;text-align:right;
-  border-bottom:1px solid var(--border);
-  font-weight:600;font-size:.7rem;letter-spacing:.3px;white-space:nowrap;
-}
-th:first-child,td.l{text-align:left}
-td{padding:9px 10px;border-bottom:1px solid rgba(30,45,61,.8);text-align:right;white-space:nowrap}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(255,255,255,.02)}
-td.name{color:var(--text);font-weight:600}
-td.wrap{white-space:normal;text-align:left;font-size:.76rem;color:var(--text2);line-height:1.5}
-.up{color:var(--up)}
-.dn{color:var(--down)}
-.gold-t{color:var(--gold)}
-.blue-t{color:var(--blue)}
-.dim{color:var(--text2)}
-
-/* ── SCENARIO CARDS ──────────────────── */
-.sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:700px){.sc-grid{grid-template-columns:1fr}}
-.sc{border-radius:14px;overflow:hidden;position:relative}
-.sc-a{background:linear-gradient(160deg,rgba(224,49,49,.07),rgba(224,49,49,.02));border:1px solid rgba(224,49,49,.22)}
-.sc-b{background:linear-gradient(160deg,rgba(208,135,0,.08),rgba(208,135,0,.02));border:1px solid rgba(208,135,0,.25)}
-.sc-c{background:linear-gradient(160deg,rgba(100,116,139,.06),rgba(100,116,139,.01));border:1px solid rgba(100,116,139,.18)}
-/* header strip */
-.sc-head{padding:14px 16px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,.05)}
-.sc-donut{flex-shrink:0}
-.sc-meta{flex:1;min-width:0}
-.sc-label{font-size:.68rem;font-weight:700;letter-spacing:.5px;margin-bottom:2px;text-transform:uppercase}
-.sc-a .sc-label{color:var(--up)}
-.sc-b .sc-label{color:var(--gold)}
-.sc-c .sc-label{color:var(--text3)}
-.sc-title{font-size:.92rem;font-weight:800;line-height:1.2}
-.sc-a .sc-title{color:var(--up)}
-.sc-b .sc-title{color:var(--gold)}
-.sc-c .sc-title{color:var(--text2)}
-/* baseline badge */
-.sc-base-badge{
-  position:absolute;top:10px;right:10px;
-  padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:800;
-  background:rgba(245,159,0,.2);color:var(--gold);border:1px solid rgba(245,159,0,.4);
-}
-/* body */
-.sc-body{padding:12px 16px 0}
-.sc-section-lbl{
-  font-size:.65rem;font-weight:700;letter-spacing:.6px;
-  text-transform:uppercase;color:var(--text3);
-  margin-bottom:6px;display:flex;align-items:center;gap:5px;
-}
-.sc-section-lbl::before{content:'';display:inline-block;width:12px;height:1px;background:currentColor}
-.sc ul{list-style:none;padding:0;font-size:.76rem;color:var(--text2);margin-bottom:12px}
-.sc ul li{padding:3px 0;display:flex;gap:6px;line-height:1.4}
-.sc ul li::before{content:"›";color:var(--accent);flex-shrink:0;margin-top:1px}
-/* action block */
-.sc-action{
-  margin:0 -0px;padding:10px 16px 14px;
-  font-size:.76rem;line-height:1.55;
-  border-top:1px solid rgba(255,255,255,.05);
-}
-.sc-action-lbl{font-size:.65rem;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:5px}
-.sc-action-lbl::before{content:'';display:inline-block;width:12px;height:1px;background:currentColor}
-.sc-a .sc-action{background:rgba(224,49,49,.05)}
-.sc-a .sc-action-lbl{color:var(--up)}
-.sc-b .sc-action{background:rgba(208,135,0,.05)}
-.sc-b .sc-action-lbl{color:var(--gold)}
-.sc-c .sc-action{background:rgba(100,116,139,.04)}
-.sc-c .sc-action-lbl{color:var(--text3)}
-
-/* ── MINE (MINEFIELD) ────────────────── */
-.mine{
-  display:flex;gap:12px;padding:12px 14px;margin-bottom:8px;
-  border-radius:8px;background:rgba(224,49,49,.04);
-  border:1px solid rgba(224,49,49,.15);
-}
-.mine-ico{font-size:1.1rem;flex-shrink:0;padding-top:1px}
-.mine-nm{font-weight:700;color:var(--up);font-size:.85rem}
-.mine-desc{font-size:.76rem;color:var(--text2);margin-top:2px;line-height:1.5}
-
-/* ── SAMPLE TRIO ─────────────────────── */
-.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-@media(max-width:700px){.trio{grid-template-columns:1fr}}
-.trio-card{padding:14px;border-radius:10px;font-size:.78rem;line-height:1.6}
-.trio-card h4{font-size:.8rem;font-weight:700;margin-bottom:6px}
-.trio-g{background:rgba(12,166,120,.04);border:1px solid rgba(12,166,120,.15)}
-.trio-g h4{color:var(--down)}
-.trio-r{background:rgba(224,49,49,.04);border:1px solid rgba(224,49,49,.15)}
-.trio-r h4{color:var(--up)}
-.trio-y{background:rgba(208,135,0,.04);border:1px solid rgba(208,135,0,.15)}
-.trio-y h4{color:var(--gold)}
-
-/* ── SCORE ───────────────────────────── */
-.score-num{font-size:3rem;font-weight:900;color:var(--gold);line-height:1}
-
-/* ── CHECKLIST ───────────────────────── */
-.cklist{list-style:none;padding:0}
-.cklist li{padding:5px 0;font-size:.82rem;display:flex;gap:8px}
-.cklist li::before{content:"▸";color:var(--accent);flex-shrink:0}
-
-/* ── FLOW BAR ────────────────────────── */
-.fbar{display:inline-block;width:52px;height:5px;background:var(--border2);border-radius:3px;vertical-align:middle;margin-right:4px;overflow:hidden}
-.fbar-f{height:100%;border-radius:3px;background:var(--up)}
-.fbar-f.dn{background:var(--down)}
-
-/* ── WATCHLIST ───────────────────────── */
-.wl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-@media(max-width:600px){.wl-grid{grid-template-columns:1fr}}
-.wl-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px}
-.wl-item.danger{border-color:rgba(224,49,49,.25);background:rgba(224,49,49,.03)}
-.wl-nm{font-weight:700;font-size:.85rem;margin-bottom:4px}
-.wl-sub{font-size:.73rem;color:var(--text2);line-height:1.5}
-
-/* ── GATE CHECKLIST ──────────────────── */
-.gate{counter-reset:gate}
-.gate li{
-  counter-increment:gate;list-style:none;
-  padding:8px 12px 8px 42px;position:relative;
-  border-bottom:1px solid var(--border);font-size:.82rem;line-height:1.5;
-}
-.gate li:last-child{border-bottom:none}
-.gate li::before{
-  content:counter(gate);
-  position:absolute;left:12px;top:9px;
-  width:20px;height:20px;border-radius:50%;
-  background:var(--accent);color:#fff;
-  font-size:.68rem;font-weight:800;
-  display:flex;align-items:center;justify-content:center;
-  text-align:center;
-}
-
-/* ── WATCH CHECKLIST ─────────────────── */
-.watch5{counter-reset:w5}
-.watch5 li{
-  counter-increment:w5;list-style:none;
-  padding:9px 12px 9px 44px;position:relative;
-  font-size:.8rem;border-bottom:1px solid var(--border);line-height:1.5;color:var(--text2);
-}
-.watch5 li:last-child{border-bottom:none}
-.watch5 li::before{
-  content:counter(w5);
-  position:absolute;left:12px;top:10px;
-  width:20px;height:20px;border-radius:50%;
-  background:var(--surface2);border:1px solid var(--border2);
-  color:var(--gold);font-size:.68rem;font-weight:800;
-  display:flex;align-items:center;justify-content:center;
-}
-.watch5 li strong{color:var(--text)}
-
-/* ── TWO-COL ─────────────────────────── */
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:640px){.two-col{grid-template-columns:1fr}}
-
-/* ── FOOTER ──────────────────────────── */
-footer{
-  text-align:center;padding:28px 16px;margin-top:16px;
-  border-top:1px solid var(--border);
-  color:var(--text3);font-size:.72rem;line-height:1.8;
-}
-
-/* ── DISCLAIMER ──────────────────────── */
-.disclaimer{
-  margin:20px 0;padding:14px 18px;
-  border-radius:8px;border:1px dashed var(--border2);
-  text-align:center;font-size:.74rem;color:var(--text3);
-}
-</style>
+<title>A股深度复盘 · {TODAY}</title>
+{css_block}
 </head>
 <body>
 
@@ -307,7 +67,7 @@ footer{
 <nav class="nav">
   <span class="nav-logo">📊 A股深度复盘</span>
   <div class="nav-divider"></div>
-  <span style="font-size:.78rem;color:var(--text2)">2026-09-22 · 周二</span>
+  <span style="font-size:.78rem;color:var(--text2)">{TODAY} · {weekday_cn}</span>
   <span class="nav-tag" style="background:rgba(12,166,120,.1);color:var(--down);border-color:rgba(12,166,120,.25)">🔴 主力流出 -153亿</span>
   <div class="nav-indices">
     <span class="nav-idx">上证 <b style="color:var(--up)">3952 ↑+0.06%</b></span>
@@ -577,7 +337,7 @@ footer{
 
   <!-- 4.2 情景推演 -->
   <div class="card">
-    <div class="card-title"><span class="dot"></span>4.2 明日（9/23）情景推演 — 概率权重法</div>
+    <div class="card-title"><span class="dot"></span>4.2 明日（{tomorrow_short}）情景推演 — 概率权重法</div>
     <div class="sc-grid">
 
       <!-- ── 情景 A ── -->
@@ -861,7 +621,7 @@ footer{
 <div class="sec">
   <div class="sec-hd">
     <span class="step-pill" style="background:var(--gold);color:#000">校正</span>
-    <h2>前日推演验证打分（9/21选股 → 9/22验证）</h2>
+    <h2>前日推演验证打分（{prev_short}选股 → {today_short}验证）</h2>
     <span class="sub">自我校正机制</span>
   </div>
   <div class="card">
@@ -872,15 +632,15 @@ footer{
         <div style="font-size:.7rem;color:var(--text3);margin-top:2px">（不及格）</div>
       </div>
       <div style="flex:1;min-width:200px;font-size:.82rem;line-height:1.75">
-        <strong style="color:var(--gold)">验证结果：</strong>9/21选股15只 → 9/22验证：7涨8跌，胜率46.7%，平均收益-0.17%，最大涨+3.80%（晋控煤业），最大跌-2.62%（天创时尚）。<br><br>
-        <strong style="color:var(--up)">最大教训：</strong>9/21选股集中在医药/地产方向（复星医药、天目药业、上实发展），但9/22主力资金切换至传媒+AI应用方向，<strong>选股方向与资金实际流向完全背离</strong>——医药板块净流出，地产链分化，选股策略需加入"板块资金流向一致性"校验。
+        <strong style="color:var(--gold)">验证结果：</strong>{prev_short}选股15只 → {today_short}验证：7涨8跌，胜率46.7%，平均收益-0.17%，最大涨+3.80%（晋控煤业），最大跌-2.62%（天创时尚）。<br><br>
+        <strong style="color:var(--up)">最大教训：</strong>{prev_short}选股集中在医药/地产方向（复星医药、天目药业、上实发展），但{today_short}主力资金切换至传媒+AI应用方向，<strong>选股方向与资金实际流向完全背离</strong>——医药板块净流出，地产链分化，选股策略需加入"板块资金流向一致性"校验。
       </div>
     </div>
     <div class="tbl-wrap" style="margin-bottom:14px">
       <table>
         <thead><tr><th class="l">个股</th><th>评分</th><th>前日价</th><th>今日价</th><th>涨跌</th><th>结果</th></tr></thead>
         <tbody>
-          <tr><td class="l">晋控煤业</td><td>4</td><td>17.61</td><td>18.28</td><td class="up">+3.80%</td><td class="up">✓</td></tr><tr><td class="l">美诺华</td><td>4</td><td>27.9</td><td>28.82</td><td class="up">+3.30%</td><td class="up">✓</td></tr><tr><td class="l">润达医疗</td><td>4</td><td>10.1</td><td>10.17</td><td class="up">+0.69%</td><td class="up">✓</td></tr><tr><td class="l">复星医药</td><td>4</td><td>23.05</td><td>23.13</td><td class="up">+0.35%</td><td class="up">✓</td></tr><tr><td class="l">天目药业</td><td>4</td><td>23.84</td><td>23.9</td><td class="up">+0.25%</td><td class="up">✓</td></tr><tr><td class="l">合力科技</td><td>4</td><td>14.35</td><td>14.36</td><td class="up">+0.07%</td><td class="up">✓</td></tr><tr><td class="l">华翔股份</td><td>4</td><td>17.63</td><td>17.64</td><td class="up">+0.06%</td><td class="up">✓</td></tr><tr><td class="l">药明康德</td><td>4</td><td>167.96</td><td>167.85</td><td class="dn">-0.07%</td><td class="dn">✗</td></tr><tr><td class="l">倍加洁</td><td>4</td><td>25.71</td><td>25.63</td><td class="dn">-0.31%</td><td class="dn">✗</td></tr><tr><td class="l">000036</td><td>4</td><td>4.08</td><td>4.05</td><td class="dn">-0.74%</td><td class="dn">✗</td></tr><tr><td class="l">音飞储存</td><td>4</td><td>9.5</td><td>9.36</td><td class="dn">-1.47%</td><td class="dn">✗</td></tr><tr><td class="l">上海机电</td><td>4</td><td>18.66</td><td>18.33</td><td class="dn">-1.77%</td><td class="dn">✗</td></tr><tr><td class="l">振华股份</td><td>4</td><td>36.95</td><td>36.24</td><td class="dn">-1.92%</td><td class="dn">✗</td></tr><tr><td class="l">上实发展</td><td>4</td><td>4.06</td><td>3.97</td><td class="dn">-2.22%</td><td class="dn">✗</td></tr><tr><td class="l">天创时尚</td><td>4</td><td>22.13</td><td>21.55</td><td class="dn">-2.62%</td><td class="dn">✗</td></tr>
+          {rows_html}
         </tbody>
       </table>
     </div>
@@ -897,9 +657,24 @@ footer{
 </div><!-- /wrap -->
 
 <footer>
-  A股深度复盘报告 · 2026-09-22 · 优化版六步框架（情景推演 + 雷区名单 + 自评校正）<br>
+  A股深度复盘报告 · {TODAY} · 优化版六步框架（情景推演 + 雷区名单 + 自评校正）<br>
   数据来源：东方财富 astock-flow · 同花顺板块 · 自动生成 · 仅供参考
 </footer>
 
 </body>
-</html>
+</html>'''
+
+out = Path(f'review/{TODAY}/review_{TODAY}.html')
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(html, encoding='utf-8')
+print(f'✅ 生成 {out} ({len(html):,} chars)')
+
+idx = Path('review/index.html')
+idx.write_text(
+    f'<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    f'<meta http-equiv="refresh" content="0;url={TODAY}/review_{TODAY}.html">'
+    f'<title>A股深度复盘 · {TODAY}</title></head>'
+    f'<body><a href="{TODAY}/review_{TODAY}.html">跳转到最新复盘 {TODAY}</a></body></html>',
+    encoding='utf-8'
+)
+print('✅ 更新 review/index.html')

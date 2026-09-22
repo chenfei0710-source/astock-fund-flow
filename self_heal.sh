@@ -77,6 +77,18 @@ else
     echo "[$TS] ✅ 数据完整，无需干预" >> "$LOG"
 fi
 
+# 5. 生成当日复盘报告（基于9/18 CSS框架 + 当日真实数据）
+echo "[$TS] 生成复盘报告..." >> "$LOG"
+$PYTHON "$REPO_DIR/gen_review.py" >> "$LOG" 2>&1
+if [ $? -eq 0 ]; then
+    git add review/ >> "$LOG" 2>&1
+    git diff --cached --quiet || git commit -m "复盘报告: $DATE" >> "$LOG" 2>&1
+    git push origin main >> "$LOG" 2>&1
+    echo "[$TS] ✅ 复盘报告已生成并推送" >> "$LOG"
+else
+    echo "[$TS] ⚠️ 复盘报告生成失败，检查 gen_review.py" >> "$LOG"
+fi
+
 # 4. 记录当前权重版本（自我进化日志）
 $PYTHON - << PYEOF >> "$LOG" 2>&1
 import sqlite3, json
