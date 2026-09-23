@@ -102,8 +102,16 @@ else:
     nav_tag = f'🔴 主力流出 {zhuli:.0f}亿'
     nav_tag_style = 'background:rgba(12,166,120,.1);color:var(--down);border-color:rgba(12,166,120,.25)'
 
-# 板块数据 top5
-em_top5 = em[:5]
+# 板块数据 top5 —— EM 板块资金全 0 时回退到 THS（多源容灾）
+_em_all_zero = all(s.get('zhuli', 0) == 0 for s in em) if em else True
+if _em_all_zero and ths:
+    # 用 THS 板块数据（字段名映射：net → zhuli）
+    em_top5 = [{'name': s['name'], 'zhuli': s.get('net', 0), 'chg': s.get('chg', 0),
+                'chaoda': 0, 'dadan': 0, 'ratio': 0} for s in ths[:5]]
+    em_fallback = 'THS'
+else:
+    em_top5 = em[:5]
+    em_fallback = 'EM'
 ths_top5 = ths[:5]
 ths_bottom3 = ths[-3:] if len(ths) >= 3 else ths
 
@@ -201,7 +209,7 @@ def build_sector_table(em_top5, ths_bottom3):
           </tr>''')
     return '\n'.join(rows)
 
-sector_table_html = build_sector_table(em[:4], ths[-3:] if len(ths) >= 3 else [])
+sector_table_html = build_sector_table(em_top5[:4], ths[-3:] if len(ths) >= 3 else [])
 
 # 动态龙虎榜表格
 def build_dragon_table(ths_top5):
@@ -249,8 +257,8 @@ dragon2_name = ths[1].get('top_stock', '--') if len(ths) > 1 else '--'
 dragon2_chg = ths[1].get('top_chg', '--') if len(ths) > 1 else '--'
 
 # 次主线板块名
-sub_sector = em[1]['name'] if len(em) > 1 else '--'
-sub_sector_net = em[1]['zhuli'] if len(em) > 1 else 0
+sub_sector = em_top5[1]['name'] if len(em_top5) > 1 else '--'
+sub_sector_net = em_top5[1]['zhuli'] if len(em_top5) > 1 else 0
 
 # 预计算变量（避免 f-string 中的字典访问和条件表达式）
 reco0_name = reco[0]['name'] if reco else '--'
@@ -261,8 +269,8 @@ ths2_chg = ths[1].get('top_chg', '--') if len(ths) > 1 else '--'
 ths2_net = ths[1].get('net', 0) if len(ths) > 1 else 0
 ths3_net2 = ths[2].get('net', 0) if len(ths) > 2 else 0
 ths8_net = ths[7].get('net', 0) if len(ths) > 7 else 0
-em3_net = em[2]['zhuli'] if len(em) > 2 else 0
-top3_net_sum = sum(s['zhuli'] for s in em[:3]) if len(em) >= 3 else 0
+em3_net = em_top5[2]['zhuli'] if len(em_top5) > 2 else 0
+top3_net_sum = sum(s['zhuli'] for s in em_top5[:3]) if len(em_top5) >= 3 else 0
 nav_tag_short = '主力流入' if zhuli > 0 else '主力流出'
 down_count = total_reco - up_count if total_reco else 0
 
