@@ -840,20 +840,20 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
     yf_tickers  = list(yf_to_code.keys())
 
     kline_map = {}
-    batch_size = 500
+    batch_size = 80
     total_batches = (len(yf_tickers) + batch_size - 1) // batch_size
 
     for i in range(0, len(yf_tickers), batch_size):
         batch = yf_tickers[i:i+batch_size]
         bn = i // batch_size + 1
-        print(f"[全市场扫描] yfinance 批次 {bn}/{total_batches}，{len(batch)} 只...")
+        print(f"[全市场扫描] yfinance 批次 {bn}/{total_batches}，{len(batch)} 只...", flush=True)
         try:
             df = yf.download(
                 tickers=batch, period='60d', interval='1d',
-                auto_adjust=True, progress=False, threads=True,
+                auto_adjust=True, progress=False, threads=False,
             )
             if df.empty:
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
                 continue
 
             is_multi = df.columns.nlevels > 1
@@ -877,10 +877,10 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
                     if len(tmp) >= 5:
                         kline_map[code] = {'closes': tmp['c'].tolist(), 'opens': tmp['o'].tolist(), 'volumes': tmp['v'].tolist()}
                 except Exception: pass
-            print(f"  批次 {bn}: 累计有效 {len(kline_map)} 只")
+            print(f"  批次 {bn}: 累计有效 {len(kline_map)} 只", flush=True)
         except Exception as e:
-            print(f"  批次 {bn} 失败: {e}")
-        await asyncio.sleep(1)
+            print(f"  批次 {bn} 失败: {e}", flush=True)
+        await asyncio.sleep(2)
 
     print(f"[全市场扫描] yfinance 完成，有效 {len(kline_map)} 只")
     if not kline_map:

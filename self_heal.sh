@@ -11,15 +11,31 @@ PYTHON="/Library/Developer/CommandLineTools/usr/bin/python3"
 DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
 TS=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
+# ── git push 辅助函数（crontab 非交互模式从 keychain 取 token）──
+git_push() {
+    local token
+    token=$(security find-internet-password -s github.com -w 2>/dev/null)
+    if [ -n "$token" ]; then
+        git push "https://chenfei0710-source:${token}@github.com/chenfei0710-source/astock-fund-flow.git" main >> "$LOG" 2>&1
+    else
+        git_push
+    fi
+}
+
 echo "[$TS] ===== 自检开始 DATE=$DATE =====" >> "$LOG"
 
 cd "$REPO_DIR" || exit 1
 
 # 1. 拉取最新远端状态
 echo "[$TS] git pull..." >> "$LOG"
-git pull --ff-only origin main >> "$LOG" 2>&1 || git pull --rebase origin main >> "$LOG" 2>&1
+token=$(security find-internet-password -s github.com -W 2>/dev/null)
+if [ -n "$token" ]; then
+    git pull --ff-only "https://chenfei0710-source:${token}@github.com/chenfei0710-source/astock-fund-flow.git" main >> "$LOG" 2>&1 || git pull --rebase "https://chenfei0710-source:${token}@github.com/chenfei0710-source/astock-fund-flow.git" main >> "$LOG" 2>&1
+else
+    git pull --ff-only origin main >> "$LOG" 2>&1 || git pull --rebase origin main >> "$LOG" 2>&1
+fi
 
-# 2. 检查同花顺数据完整性（主数据源）
+# 2. 检查关键数据表完整性
 THS_COUNT=$($PYTHON -c "
 import sqlite3
 conn = sqlite3.connect('$GITHUB_DB')
@@ -36,10 +52,18 @@ conn.close()
 print(n)
 " 2>/dev/null)
 
-echo "[$TS] sector_flow_ths[$DATE]=$THS_COUNT 条，stock_reco=$RECO_COUNT 条" >> "$LOG"
+MF_COUNT=$($PYTHON -c "
+import sqlite3
+conn = sqlite3.connect('$GITHUB_DB')
+n = conn.execute('SELECT COUNT(*) FROM market_flow WHERE date=?', ('$DATE',)).fetchone()[0]
+conn.close()
+print(n)
+" 2>/dev/null)
+
+echo "[$TS] sector_flow_ths[$DATE]=$THS_COUNT 条，stock_reco=$RECO_COUNT 条，market_flow=$MF_COUNT 条" >> "$LOG"
 
 # 3. 数据缺失时：本地重跑爬虫（国内IP，EM+THS都能抓）
-if [ "$THS_COUNT" = "0" ] || [ -z "$THS_COUNT" ]; then
+if [ "$THS_COUNT" = "0" ] || [ -z "$THS_COUNT" ] || [ "$MF_COUNT" = "0" ] || [ -z "$MF_COUNT" ]; then
     echo "[$TS] ⚠️  同花顺数据缺失，触发本地自愈..." >> "$LOG"
 
     # 本地环境补全依赖
@@ -58,14 +82,21 @@ n = conn.execute('SELECT COUNT(*) FROM sector_flow_ths WHERE date=?', ('$DATE',)
 conn.close()
 print(n)
 " 2>/dev/null)
-        echo "[$TS] 自愈后 THS=$THS_AFTER 条" >> "$LOG"
+        MF_AFTER=$($PYTHON -c "
+import sqlite3
+conn = sqlite3.connect('$GITHUB_DB')
+n = conn.execute('SELECT COUNT(*) FROM market_flow WHERE date=?', ('$DATE',)).fetchone()[0]
+conn.close()
+print(n)
+" 2>/dev/null)
+        echo "[$TS] 自愈后 THS=$THS_AFTER 条，market_flow=$MF_AFTER 条" >> "$LOG"
 
         if [ "$THS_AFTER" != "0" ]; then
             # 导出 JSON 并推送
             $PYTHON "$REPO_DIR/export_json.py" >> "$LOG" 2>&1
             git add data/ fund_flow.db >> "$LOG" 2>&1
             git diff --cached --quiet || git commit -m "本地自愈: 补全 $DATE 数据（本机重跑）" >> "$LOG" 2>&1
-            git push origin main >> "$LOG" 2>&1
+            git_push
             echo "[$TS] ✅ 本地自愈成功并推送" >> "$LOG"
         else
             echo "[$TS] ❌ 本地自愈后数据仍为空，可能今日非交易日" >> "$LOG"
@@ -90,7 +121,7 @@ if [ $? -eq 0 ]; then
             echo "[$TS] ✅ 报告校验通过 ($FILE_SIZE bytes)" >> "$LOG"
             git add review/ >> "$LOG" 2>&1
             git diff --cached --quiet || git commit -m "复盘报告: $DATE" >> "$LOG" 2>&1
-            git push origin main >> "$LOG" 2>&1
+            git_push
             echo "[$TS] ✅ 复盘报告已生成并推送" >> "$LOG"
         else
             echo "[$TS] ❌ 报告校验失败：缺少关键数据" >> "$LOG"

@@ -26,7 +26,9 @@ jobs:
 
       - name: 运行爬虫
         run: python scraper.py
-        timeout-minutes: 15
+        timeout-minutes: 30
+        env:
+          PYTHONUNBUFFERED: '1'
 
       - name: 验证关键数据完整性
         run: |
