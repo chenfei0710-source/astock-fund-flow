@@ -285,7 +285,25 @@ def fetch_em_market_flow(trade_date):
             }
         except Exception as e:
             print(f"[大盘主力] akshare fallback 失败: {e}")
-            return None
+
+    # Plan C: 用 sector_flow_ths 板块净流入合计值估算大盘主力
+    # 如果 push2his + akshare 都失败但 THS 板块数据已有，用板块合计估算
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute("SELECT net FROM sector_flow_ths WHERE date=?", (trade_date,)).fetchall()
+        conn.close()
+        if rows:
+            ths_total = round(sum(r[0] for r in rows if r[0]), 2)
+            print(f"[大盘主力] Plan C 估算(THS板块合计): 主力≈{ths_total}亿")
+            return {
+                'date': trade_date, 'zhuli_net': ths_total,
+                'chaoda_net': 0, 'dadan_net': 0,
+                'zhongdan_net': 0, 'sanhu_net': 0,
+                'source': 'THS板块合计估算'
+            }
+    except Exception as e:
+        print(f"[大盘主力] Plan C 失败: {e}")
+    return None
 
     if not result or not result.get('data'):
         print(f"[大盘主力] 无数据")
@@ -970,6 +988,30 @@ def save_stock_reco(reco_list, trade_date):
     conn.close()
     print(f"[个股分析] 保存 {saved} 条推荐数据")
 
+def _fetch_prices_from_em(code_list):
+    """Plan B: 东方财富 push2 个股实时行情 API（yfinance 限流时备用）"""
+    if not code_list or not CURL_AVAILABLE:
+        return {}
+    def to_secid(code):
+        return f'1.{code}' if code.startswith('6') else f'0.{code}'
+    secids = ','.join(to_secid(c) for c in code_list[:50])  # 限制 50 个以内
+    try:
+        r = curl_requests.get('https://push2.eastmoney.com/api/qt/ulist.np/get',
+            params={'secids': secids, 'fields': 'f2,f3,f12', 'fltt': '2'},
+            impersonate='chrome', timeout=15)
+        d = r.json()
+        price_map = {}
+        for item in d.get('data', {}).get('diff', []):
+            code = item.get('f12', '')
+            close = item.get('f2')
+            if close and code:
+                price_map[str(code)] = float(close)
+        print(f"[EM价格] Plan B 获取 {len(price_map)}/{len(code_list)} 只价格")
+        return price_map
+    except Exception as e:
+        print(f"[EM价格] Plan B 失败: {e}")
+        return {}
+
 def run_strategy_review(trade_date, today_price_map):
     """
     复盘昨日推荐标的今日表现：
@@ -1180,7 +1222,7 @@ def save_index_daily(items, trade_date):
     conn.commit()
     conn.close()
 
-# ── Step 8: 涨停统计（akshare 涨停池/跌停池/炸板池）──
+# ── Step 8: 涨停统计（akshare 涨停池/跌停池/炸板池 → EM push2 备用）──
 def fetch_market_stats(trade_date):
     """抓取涨停/跌停/炸板/连板统计"""
     import akshare as ak
@@ -1200,15 +1242,29 @@ def fetch_market_stats(trade_date):
         # 首板数（连板数==1）
         stats['first_board'] = int((df['连板数'] == 1).sum()) if '连板数' in df.columns else zt_count
     except Exception as e:
-        print(f"[涨停池] 失败: {e}")
+        print(f"[涨停池] akshare 失败: {e}")
         stats['zt_count'] = 0
+        # Plan B: 东方财富涨跌分布 API（至少拿到涨跌家数，无涨停明细）
+        try:
+            from curl_cffi import requests as cr
+            r = cr.get('https://push2.eastmoney.com/api/qt/ulist.np/get',
+                params={'secids': '1.000001,0.399001', 'fields': 'f104,f105,f106', 'fltt': '2'},
+                impersonate='chrome', timeout=10)
+            d = r.json()
+            up_count = sum(item.get('f104', 0) for item in d.get('data', {}).get('diff', []))
+            down_count = sum(item.get('f105', 0) for item in d.get('data', {}).get('diff', []))
+            stats['up_count'] = up_count
+            stats['down_count'] = down_count
+            print(f"[涨跌家数] Plan B: 涨{up_count}/跌{down_count}")
+        except Exception as e2:
+            print(f"[涨跌家数] Plan B 也失败: {e2}")
 
     # 跌停池
     try:
         dt = ak.stock_zt_pool_dtgc_em(date=date_fmt)
         stats['dt_count'] = len(dt)
     except Exception as e:
-        print(f"[跌停池] 失败: {e}")
+        print(f"[跌停池] akshare 失败: {e}")
         stats['dt_count'] = 0
 
     # 炸板池
@@ -1216,7 +1272,7 @@ def fetch_market_stats(trade_date):
         zb = ak.stock_zt_pool_zbgc_em(date=date_fmt)
         stats['zb_count'] = len(zb)
     except Exception as e:
-        print(f"[炸板池] 失败: {e}")
+        print(f"[炸板池] akshare 失败: {e}")
         stats['zb_count'] = 0
 
     # 炸板率 = 炸板数 / (涨停数 + 炸板数) × 100%
@@ -1294,10 +1350,25 @@ async def main():
 
         print("── Step 5: 策略复盘（检验昨日推荐表现）──")
         try:
+            if not price_map:
+                # Plan B: yfinance 无数据时用东方财富 push2 个股实时 API
+                print("[复盘] price_map 为空，启用 Plan B: 东方财富个股实时 API")
+                conn = sqlite3.connect(DB_PATH)
+                prev_row = conn.execute(
+                    "SELECT DISTINCT date FROM stock_reco WHERE date < ? ORDER BY date DESC LIMIT 1",
+                    (trade_date,)).fetchone()
+                if prev_row:
+                    prev_codes = conn.execute(
+                        "SELECT stock_code FROM stock_reco WHERE date=?", (prev_row[0],)).fetchall()
+                    conn.close()
+                    code_list = [r[0] for r in prev_codes]
+                    price_map = _fetch_prices_from_em(code_list)
+                else:
+                    conn.close()
             if price_map:
                 run_strategy_review(trade_date, price_map)
             else:
-                print("[复盘] 无价格数据，跳过")
+                print("[复盘] 无价格数据（Plan A/B 均失败），跳过")
         except Exception as e:
             print(f"[复盘] 失败: {e}")
 
@@ -1334,12 +1405,20 @@ async def main():
         # 检查 index_daily chg_pct 是否全为 0
         idx_zero = conn.execute("SELECT COUNT(*) FROM index_daily WHERE date=? AND (chg_pct IS NULL OR chg_pct=0)", (trade_date,)).fetchone()[0]
         idx_total = conn.execute("SELECT COUNT(*) FROM index_daily WHERE date=?", (trade_date,)).fetchone()[0]
+        # 检查 sector_flow_em zhuli_net 是否全为 0（API 返回了板块名但没资金数据）
+        em_total = conn.execute("SELECT COUNT(*) FROM sector_flow_em WHERE date=?", (trade_date,)).fetchone()[0]
+        em_zero = conn.execute("SELECT COUNT(*) FROM sector_flow_em WHERE date=? AND zhuli_net=0", (trade_date,)).fetchone()[0]
+        em_all_zero = em_total > 0 and em_zero == em_total
+        # 检查 sector_flow_ths 是否有数据
+        ths_count = conn.execute("SELECT COUNT(*) FROM sector_flow_ths WHERE date=?", (trade_date,)).fetchone()[0]
         conn.close()
 
         missing = []
         if mf == 0: missing.append("market_flow")
         if not ms_ok: missing.append("market_stats")
         if idx_total > 0 and idx_zero == idx_total: missing.append("index_daily(涨跌幅全0)")
+        if em_all_zero: missing.append("sector_flow_em(资金全0)")
+        if ths_count == 0: missing.append("sector_flow_ths(无数据)")
 
         if not missing:
             print(f"\n✅ 数据完整性检查通过: {trade_date}")
