@@ -1140,19 +1140,32 @@ def fetch_index_daily(trade_date):
                 chg = item.get('f3')
                 if close is not None and chg is not None:
                     items.append((trade_date, code, name, float(close), float(chg)))
-            print(f"[指数] 获取 {len(items)} 个指数")
-            return items
+            # 检查是否所有 chg 都是 0（盘后刚收盘 API 可能返回 0）
+            all_zero_chg = all(it[4] == 0 for it in items) if items else True
+            if items and not all_zero_chg:
+                print(f"[指数] 获取 {len(items)} 个指数")
+                return items
+            elif items:
+                print(f"[指数] curl_cffi 返回 {len(items)} 个但涨跌幅全0，尝试 akshare 备用")
+            else:
+                print(f"[指数] curl_cffi 返回空")
+        else:
+            print(f"[指数] curl_cffi 无数据")
     except Exception as e:
         print(f"[指数] curl_cffi 失败: {e}")
-    # 备用: akshare
+    # 备用: akshare（从历史 K 线计算涨跌幅）
     try:
         import akshare as ak
+        items = []
         for sym, name in [('sh000001','上证指数'),('sz399001','深证成指'),('sz399006','创业板指'),('sh000688','科创50')]:
             df = ak.stock_zh_index_daily_em(symbol=sym)
-            if len(df) > 0:
+            if len(df) >= 2:
                 row = df.iloc[-1]
-                items.append((trade_date, sym[2:], name, float(row['close']), None))
-        print(f"[指数] akshare 备用获取 {len(items)} 个")
+                prev = df.iloc[-2]
+                close = float(row['close'])
+                chg = round((close - float(prev['close'])) / float(prev['close']) * 100, 2)
+                items.append((trade_date, sym[2:], name, close, chg))
+        print(f"[指数] akshare 备用获取 {len(items)} 个（含涨跌幅）")
         return items
     except Exception as e:
         print(f"[指数] akshare 备用也失败: {e}")
@@ -1245,66 +1258,96 @@ async def main():
 
     init_db()
 
-    print("── Step 1: 东方财富板块资金 ──")
-    em_items = fetch_em_sector_flow(trade_date)
-    save_em_sector_flow(em_items, trade_date)
+    def run_all_steps():
+        """执行全部抓取步骤"""
+        print("── Step 1: 东方财富板块资金 ──")
+        em_items = fetch_em_sector_flow(trade_date)
+        save_em_sector_flow(em_items, trade_date)
 
-    print("── Step 2: 东方财富大盘主力 ──")
-    market_data = fetch_em_market_flow(trade_date)
-    save_market_flow(market_data)
+        print("── Step 2: 东方财富大盘主力 ──")
+        market_data = fetch_em_market_flow(trade_date)
+        save_market_flow(market_data)
 
-    print("── Step 3: 同花顺行业板块 ──")
-    try:
-        ths_rows = fetch_ths_sector_flow()
-        save_ths_sector_flow(ths_rows, trade_date)
-    except Exception as e:
-        print(f"[同花顺] 失败: {e}")
+        print("── Step 3: 同花顺行业板块 ──")
+        try:
+            ths_rows = fetch_ths_sector_flow()
+            save_ths_sector_flow(ths_rows, trade_date)
+        except Exception as e:
+            print(f"[同花顺] 失败: {e}")
 
-    print("── Step 3.5: 同花顺个股资金流向（主力净流入佐证）──")
-    ths_stock_map = {}
-    try:
-        ths_raw = fetch_ths_stock_flow(pages=10)  # 约300只，覆盖主力流入主力股
-        ths_stock_map = parse_ths_stock_map(ths_raw)
-        print(f"[同花顺个股] 解析完成，共 {len(ths_stock_map)} 只有效个股资金数据")
-    except Exception as e:
-        print(f"[同花顺个股] 失败（不影响选股，zhuli 将显示为0）: {e}")
+        print("── Step 3.5: 同花顺个股资金流向（主力净流入佐证）──")
+        ths_stock_map = {}
+        try:
+            ths_raw = fetch_ths_stock_flow(pages=10)  # 约300只，覆盖主力流入主力股
+            ths_stock_map = parse_ths_stock_map(ths_raw)
+            print(f"[同花顺个股] 解析完成，共 {len(ths_stock_map)} 只有效个股资金数据")
+        except Exception as e:
+            print(f"[同花顺个股] 失败（不影响选股，zhuli 将显示为0）: {e}")
 
-    print("── Step 4: 全市场个股扫描（资金+技术面精选 TOP20）──")
-    price_map = {}
-    try:
-        reco, price_map = await fetch_all_stocks_and_screen(trade_date, ths_stock_map)
-        save_stock_reco(reco, trade_date)
-    except Exception as e:
-        print(f"[全市场扫描] 失败: {e}")
+        print("── Step 4: 全市场个股扫描（资金+技术面精选 TOP20）──")
+        price_map = {}
+        try:
+            reco, price_map = await fetch_all_stocks_and_screen(trade_date, ths_stock_map)
+            save_stock_reco(reco, trade_date)
+        except Exception as e:
+            print(f"[全市场扫描] 失败: {e}")
 
-    print("── Step 5: 策略复盘（检验昨日推荐表现）──")
-    try:
-        if price_map:
-            run_strategy_review(trade_date, price_map)
+        print("── Step 5: 策略复盘（检验昨日推荐表现）──")
+        try:
+            if price_map:
+                run_strategy_review(trade_date, price_map)
+            else:
+                print("[复盘] 无价格数据，跳过")
+        except Exception as e:
+            print(f"[复盘] 失败: {e}")
+
+        print("── Step 6: 自动更新信号权重（无需人工干预）──")
+        try:
+            compute_adaptive_weights_from_history()
+        except Exception as e:
+            print(f"[自适应权重] 失败: {e}")
+
+        print("── Step 7: 指数行情 ──")
+        try:
+            idx_items = fetch_index_daily(trade_date)
+            save_index_daily(idx_items, trade_date)
+        except Exception as e:
+            print(f"[指数] 失败: {e}")
+
+        print("── Step 8: 涨停统计 ──")
+        try:
+            stats = fetch_market_stats(trade_date)
+            save_market_stats(stats)
+        except Exception as e:
+            print(f"[涨停统计] 失败: {e}")
+
+    # 首次执行
+    run_all_steps()
+
+    # ── 自检+补抓：关键表为空则重试，最多3次，每次间隔10分钟 ──
+    import time as _time
+    for attempt in range(3):
+        conn = sqlite3.connect(DB_PATH)
+        mf = conn.execute("SELECT COUNT(*) FROM market_flow WHERE date=?", (trade_date,)).fetchone()[0]
+        ms = conn.execute("SELECT zt_count FROM market_stats WHERE date=?", (trade_date,)).fetchone()
+        ms_ok = ms and ms[0] > 0
+        # 检查 index_daily chg_pct 是否全为 0
+        idx_zero = conn.execute("SELECT COUNT(*) FROM index_daily WHERE date=? AND (chg_pct IS NULL OR chg_pct=0)", (trade_date,)).fetchone()[0]
+        idx_total = conn.execute("SELECT COUNT(*) FROM index_daily WHERE date=?", (trade_date,)).fetchone()[0]
+        conn.close()
+
+        missing = []
+        if mf == 0: missing.append("market_flow")
+        if not ms_ok: missing.append("market_stats")
+        if idx_total > 0 and idx_zero == idx_total: missing.append("index_daily(涨跌幅全0)")
+
+        if not missing:
+            print(f"\n✅ 数据完整性检查通过: {trade_date}")
+            break
         else:
-            print("[复盘] 无价格数据，跳过")
-    except Exception as e:
-        print(f"[复盘] 失败: {e}")
-
-    print("── Step 6: 自动更新信号权重（无需人工干预）──")
-    try:
-        compute_adaptive_weights_from_history()
-    except Exception as e:
-        print(f"[自适应权重] 失败: {e}")
-
-    print("── Step 7: 指数行情 ──")
-    try:
-        idx_items = fetch_index_daily(trade_date)
-        save_index_daily(idx_items, trade_date)
-    except Exception as e:
-        print(f"[指数] 失败: {e}")
-
-    print("── Step 8: 涨停统计 ──")
-    try:
-        stats = fetch_market_stats(trade_date)
-        save_market_stats(stats)
-    except Exception as e:
-        print(f"[涨停统计] 失败: {e}")
+            print(f"\n⚠️ 第{attempt+1}次自检发现缺失: {missing}，等待10分钟后重试...")
+            _time.sleep(600)
+            run_all_steps()
 
     print(f"\n✅ 完成: {trade_date}")
 
