@@ -20,6 +20,8 @@ def export():
             UNION SELECT date FROM market_flow
             UNION SELECT date FROM sector_flow_ths
             UNION SELECT date FROM stock_reco
+            UNION SELECT date FROM index_daily
+            UNION SELECT date FROM market_stats
         ) ORDER BY date DESC LIMIT 60
     """).fetchall()]
 
@@ -30,6 +32,18 @@ def export():
             "SELECT zhuli_net,chaoda_net,dadan_net,zhongdan_net,sanhu_net FROM market_flow WHERE date=?", (d,)
         ).fetchone()
         market = dict(zip(['zhuli','chaoda','dadan','zhongdan','sanhu'], mf)) if mf else None
+
+        # 指数行情
+        idx_rows = conn.execute(
+            "SELECT code, name, close, chg_pct FROM index_daily WHERE date=? ORDER BY code", (d,)
+        ).fetchall()
+        indices = [dict(zip(['code','name','close','chg'], r)) for r in idx_rows]
+
+        # 涨停统计
+        ms = conn.execute(
+            "SELECT zt_count,dt_count,zb_count,zhaban_rate,jinji_rate,max_lb,max_lb_stock FROM market_stats WHERE date=?", (d,)
+        ).fetchone()
+        market_stats = dict(zip(['zt_count','dt_count','zb_count','zhaban_rate','jinji_rate','max_lb','max_lb_stock'], ms)) if ms else None
 
         # 东方财富板块
         em_rows = conn.execute("""
@@ -92,6 +106,8 @@ def export():
 
         all_data[d] = {
             'market': market,
+            'indices': indices,
+            'market_stats': market_stats,
             'em_sectors': em_sectors,
             'ths_sectors': ths_sectors,
             'stock_reco': stock_reco,

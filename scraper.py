@@ -107,6 +107,25 @@ def init_db():
             notes TEXT
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS index_daily (
+            date TEXT, code TEXT, name TEXT,
+            close REAL, chg_pct REAL,
+            ts TEXT DEFAULT (datetime('now','localtime')),
+            PRIMARY KEY (date, code)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS market_stats (
+            date TEXT PRIMARY KEY,
+            zt_count INTEGER, dt_count INTEGER, zb_count INTEGER,
+            zhaban_rate REAL, jinji_rate REAL,
+            max_lb INTEGER, max_lb_stock TEXT,
+            up_count INTEGER, down_count INTEGER,
+            total_amount REAL,
+            ts TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -1089,6 +1108,134 @@ def run_strategy_review(trade_date, today_price_map):
     if tuning_hints:
         print(f"[复盘] 调优建议: {tuning_hints}")
 
+# ── Step 7: 指数行情（curl_cffi 直连东方财富）──
+def fetch_index_daily(trade_date):
+    """抓取 A 股主要指数当日收盘价和涨跌幅"""
+    from curl_cffi import requests as cr
+    secids = {
+        '1.000001': '上证指数',
+        '0.399001': '深证成指',
+        '0.399006': '创业板指',
+        '1.000688': '科创50',
+        '0.399106': '深证综指',
+        '0.399012': '创业300',
+        '0.399100': '中证1000',
+        '0.899050': '北证50',
+    }
+    url = 'https://push2.eastmoney.com/api/qt/ulist.np/get'
+    params = {
+        'secids': ','.join(secids.keys()),
+        'fields': 'f2,f3,f12,f14',
+        'fltt': '2',
+    }
+    try:
+        r = cr.get(url, params=params, impersonate='chrome', timeout=10)
+        data = r.json()
+        items = []
+        if 'data' in data and data['data']:
+            for item in data['data'].get('diff', []):
+                code = item.get('f12', '')
+                name = item.get('f14', '')
+                close = item.get('f2')
+                chg = item.get('f3')
+                if close is not None and chg is not None:
+                    items.append((trade_date, code, name, float(close), float(chg)))
+            print(f"[指数] 获取 {len(items)} 个指数")
+            return items
+    except Exception as e:
+        print(f"[指数] curl_cffi 失败: {e}")
+    # 备用: akshare
+    try:
+        import akshare as ak
+        for sym, name in [('sh000001','上证指数'),('sz399001','深证成指'),('sz399006','创业板指'),('sh000688','科创50')]:
+            df = ak.stock_zh_index_daily_em(symbol=sym)
+            if len(df) > 0:
+                row = df.iloc[-1]
+                items.append((trade_date, sym[2:], name, float(row['close']), None))
+        print(f"[指数] akshare 备用获取 {len(items)} 个")
+        return items
+    except Exception as e:
+        print(f"[指数] akshare 备用也失败: {e}")
+    return []
+
+def save_index_daily(items, trade_date):
+    if not items:
+        return
+    conn = sqlite3.connect(DB_PATH)
+    for item in items:
+        conn.execute("INSERT OR REPLACE INTO index_daily (date,code,name,close,chg_pct) VALUES (?,?,?,?,?)", item)
+    conn.commit()
+    conn.close()
+
+# ── Step 8: 涨停统计（akshare 涨停池/跌停池/炸板池）──
+def fetch_market_stats(trade_date):
+    """抓取涨停/跌停/炸板/连板统计"""
+    import akshare as ak
+    date_fmt = trade_date.replace('-', '')
+    stats = {'date': trade_date}
+
+    # 涨停池
+    try:
+        df = ak.stock_zt_pool_em(date=date_fmt)
+        zt_count = len(df)
+        stats['zt_count'] = zt_count
+        if zt_count > 0 and '连板数' in df.columns:
+            df['连板数'] = df['连板数'].fillna(1).astype(int)
+            max_row = df.loc[df['连板数'].idxmax()]
+            stats['max_lb'] = int(max_row['连板数'])
+            stats['max_lb_stock'] = str(max_row['名称'])
+        # 首板数（连板数==1）
+        stats['first_board'] = int((df['连板数'] == 1).sum()) if '连板数' in df.columns else zt_count
+    except Exception as e:
+        print(f"[涨停池] 失败: {e}")
+        stats['zt_count'] = 0
+
+    # 跌停池
+    try:
+        dt = ak.stock_zt_pool_dtgc_em(date=date_fmt)
+        stats['dt_count'] = len(dt)
+    except Exception as e:
+        print(f"[跌停池] 失败: {e}")
+        stats['dt_count'] = 0
+
+    # 炸板池
+    try:
+        zb = ak.stock_zt_pool_zbgc_em(date=date_fmt)
+        stats['zb_count'] = len(zb)
+    except Exception as e:
+        print(f"[炸板池] 失败: {e}")
+        stats['zb_count'] = 0
+
+    # 炸板率 = 炸板数 / (涨停数 + 炸板数) × 100%
+    zt = stats.get('zt_count', 0)
+    zb = stats.get('zb_count', 0)
+    stats['zhaban_rate'] = round(zb / (zt + zb) * 100, 1) if (zt + zb) > 0 else 0
+
+    # 晋级率 = (涨停数 - 首板数) / 昨日涨停数 × 100%
+    # 用前日涨停数
+    conn = sqlite3.connect(DB_PATH)
+    prev = conn.execute("SELECT zt_count FROM market_stats WHERE date < ? ORDER BY date DESC LIMIT 1", (trade_date,)).fetchone()
+    prev_zt = prev[0] if prev else 0
+    conn.close()
+    first_board = stats.get('first_board', zt)
+    stats['jinji_rate'] = round((zt - first_board) / prev_zt * 100, 1) if prev_zt > 0 else 0
+
+    print(f"[涨停统计] 涨停={zt} 跌停={stats.get('dt_count',0)} 炸板={zb} 炸板率={stats['zhaban_rate']}% 晋级率={stats['jinji_rate']}% 最高连板={stats.get('max_lb',0)}板({stats.get('max_lb_stock','')})")
+    return stats
+
+def save_market_stats(stats):
+    if not stats or 'date' not in stats:
+        return
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""INSERT OR REPLACE INTO market_stats
+        (date, zt_count, dt_count, zb_count, zhaban_rate, jinji_rate, max_lb, max_lb_stock)
+        VALUES (?,?,?,?,?,?,?,?)""",
+        (stats['date'], stats.get('zt_count',0), stats.get('dt_count',0),
+         stats.get('zb_count',0), stats.get('zhaban_rate',0),
+         stats.get('jinji_rate',0), stats.get('max_lb',0), stats.get('max_lb_stock','')))
+    conn.commit()
+    conn.close()
+
 # ── 主流程 ─────────────────────────────────────────────────
 async def main():
     trade_date = today_str()
@@ -1144,6 +1291,20 @@ async def main():
         compute_adaptive_weights_from_history()
     except Exception as e:
         print(f"[自适应权重] 失败: {e}")
+
+    print("── Step 7: 指数行情 ──")
+    try:
+        idx_items = fetch_index_daily(trade_date)
+        save_index_daily(idx_items, trade_date)
+    except Exception as e:
+        print(f"[指数] 失败: {e}")
+
+    print("── Step 8: 涨停统计 ──")
+    try:
+        stats = fetch_market_stats(trade_date)
+        save_market_stats(stats)
+    except Exception as e:
+        print(f"[涨停统计] 失败: {e}")
 
     print(f"\n✅ 完成: {trade_date}")
 
