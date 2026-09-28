@@ -41,9 +41,9 @@ def export():
 
         # 涨停统计
         ms = conn.execute(
-            "SELECT zt_count,dt_count,zb_count,zhaban_rate,jinji_rate,max_lb,max_lb_stock FROM market_stats WHERE date=?", (d,)
+            "SELECT zt_count,dt_count,zb_count,zhaban_rate,jinji_rate,max_lb,max_lb_stock,total_amount FROM market_stats WHERE date=?", (d,)
         ).fetchone()
-        market_stats = dict(zip(['zt_count','dt_count','zb_count','zhaban_rate','jinji_rate','max_lb','max_lb_stock'], ms)) if ms else None
+        market_stats = dict(zip(['zt_count','dt_count','zb_count','zhaban_rate','jinji_rate','max_lb','max_lb_stock','total_amount'], ms)) if ms else None
 
         # 东方财富板块
         em_rows = conn.execute("""

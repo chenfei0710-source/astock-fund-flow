@@ -889,6 +889,7 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
             rate_limit_streak = 0  # 成功就重置计数
 
             is_multi = df.columns.nlevels > 1
+            batch_added = 0  # 本批新增数
             for ticker in batch:
                 code = yf_to_code.get(ticker, '')
                 if not code: continue
@@ -908,8 +909,17 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
                     tmp['v'] = tmp['v'].fillna(0)
                     if len(tmp) >= 5:
                         kline_map[code] = {'closes': tmp['c'].tolist(), 'opens': tmp['o'].tolist(), 'volumes': tmp['v'].tolist()}
+                        batch_added += 1
                 except Exception: pass
             print(f"  批次 {bn}: 累计有效 {len(kline_map)} 只", flush=True)
+            # 如果本批成功率 < 10%（80只里成功<8只），视为限流，连续 2 次切 Plan B
+            if batch_added < batch_size * 0.1:
+                rate_limit_streak += 1
+                print(f"  批次 {bn} 成功率 {batch_added}/{len(batch)} 过低，疑似限流（连续 {rate_limit_streak} 次）", flush=True)
+                if rate_limit_streak >= 2 and bn >= 2:
+                    print(f"[全市场扫描] yfinance 连续 {rate_limit_streak} 批成功率过低，切换 Plan B: akshare 按板块分批")
+                    switched_to_plan_b = True
+                    break
         except Exception as e:
             err_str = str(e)
             if 'Rate' in err_str or 'Too Many' in err_str:
@@ -1017,6 +1027,12 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
                         'price': round(close, 2), 'chg': round(chg, 2),
                         'zhuli': zhuli,
                         'vol_ratio': float(vol_ratio) if vol_ratio else 1.0,
+                        'vol_2x': 1.0 if (vol_ratio and float(vol_ratio) >= 2) else 0,
+                        # 无历史K线时技术面字段置空（save_stock_reco 期望这些 key 存在）
+                        'ma5': None, 'ma10': None, 'ma20': None, 'ma_align': 0,
+                        'macd_signal': 'unknown', 'macd_above_zero': 0,
+                        'rsi': None, 'yang_cross': 0, 'pullback_10d': 0,
+                        'score': 0, 'signal': 'Plan C(无技术面)',
                     })
                 except (ValueError, TypeError):
                     continue
@@ -1444,6 +1460,20 @@ def fetch_market_stats(trade_date):
     zb = stats.get('zb_count', 0)
     stats['zhaban_rate'] = round(zb / (zt + zb) * 100, 1) if (zt + zb) > 0 else 0
 
+    # 两市总成交额（亿元）：EM push2 ulist 的 f6 字段（上证+深证成交额求和）
+    try:
+        from curl_cffi import requests as cr
+        r = cr.get('https://push2.eastmoney.com/api/qt/ulist.np/get',
+            params={'secids': '1.000001,0.399001', 'fields': 'f6,f12', 'fltt': '2'},
+            impersonate='chrome', timeout=10)
+        d = r.json()
+        total = sum(item.get('f6', 0) for item in d.get('data', {}).get('diff', []))
+        stats['total_amount'] = round(total / 1e8) if total > 0 else 0  # 元 → 亿
+        print(f"[成交额] 两市合计 {stats['total_amount']} 亿")
+    except Exception as e:
+        print(f"[成交额] EM 失败: {e}")
+        stats['total_amount'] = 0
+
     # 晋级率 = (涨停数 - 首板数) / 昨日涨停数 × 100%
     # 用前日涨停数
     conn = sqlite3.connect(DB_PATH)
@@ -1461,11 +1491,12 @@ def save_market_stats(stats):
         return
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""INSERT OR REPLACE INTO market_stats
-        (date, zt_count, dt_count, zb_count, zhaban_rate, jinji_rate, max_lb, max_lb_stock)
-        VALUES (?,?,?,?,?,?,?,?)""",
+        (date, zt_count, dt_count, zb_count, zhaban_rate, jinji_rate, max_lb, max_lb_stock, total_amount)
+        VALUES (?,?,?,?,?,?,?,?,?)""",
         (stats['date'], stats.get('zt_count',0), stats.get('dt_count',0),
          stats.get('zb_count',0), stats.get('zhaban_rate',0),
-         stats.get('jinji_rate',0), stats.get('max_lb',0), stats.get('max_lb_stock','')))
+         stats.get('jinji_rate',0), stats.get('max_lb',0), stats.get('max_lb_stock',''),
+         stats.get('total_amount',0)))
     conn.commit()
     conn.close()
 

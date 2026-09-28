@@ -326,10 +326,9 @@ top3_net_sum = sum(s['zhuli'] for s in em_top5[:3]) if len(em_top5) >= 3 else 0
 nav_tag_short = '主力流入' if zhuli > 0 else '主力流出'
 down_count = total_reco - up_count if total_reco else 0
 
-# 量能
-total_amount = 21000  # 默认值
-if sh_close != '--':
-    total_amount = 21000  # TODO: 从 API 获取实际成交额
+# 量能：两市总成交额（亿元），从 market_stats.total_amount 读真实值
+total_amount = ms.get('total_amount', 0)
+total_amount_str = f'{total_amount}亿' if total_amount else '--'
 
 # nav-indices HTML 预构建
 def nav_idx_html(label, close, chg):
@@ -417,7 +416,7 @@ html = f'''<!DOCTYPE html>
     <div class="kpi {chg_class(sz_chg)}"><div class="lbl">深证成指</div><div class="num">{sz_close}</div><div class="chg">{fmt_chg_color(sz_chg)}</div></div>
     <div class="kpi {chg_class(cy_chg)}"><div class="lbl">创业板指</div><div class="num">{cy_close}</div><div class="chg">{fmt_chg_color(cy_chg)}</div></div>
     <div class="kpi {chg_class(kc_chg)}"><div class="lbl">科创50</div><div class="num">{kc_close}</div><div class="chg">{fmt_chg_color(kc_chg)}</div></div>
-    <div class="kpi gold"><div class="lbl">两市成交</div><div class="num" style="font-size:1.1rem">{total_amount}亿</div><div class="chg" style="color:var(--text2)">两市成交额</div></div>
+    <div class="kpi gold"><div class="lbl">两市成交</div><div class="num" style="font-size:1.1rem">{total_amount_str}</div><div class="chg" style="color:var(--text2)">两市成交额</div></div>
     <div class="kpi gold"><div class="lbl">涨停 / 跌停</div><div class="num">{zt_count} / {dt_count}</div><div class="chg" style="color:var(--text2)">全部非ST</div></div>
   </div>
   <div class="stat-row2">
@@ -434,7 +433,7 @@ html = f'''<!DOCTYPE html>
       {sketch_narrative}
     </div>
     <div class="hbox red">
-      <strong style="color:var(--up)">量能关键信号：</strong>两市{total_amount}亿。主力净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿——<strong>机构出货、散户接盘</strong>的典型高位分歧结构。炸板率{zhaban_rate}%，情绪温度进入分歧期。
+      <strong style="color:var(--up)">量能关键信号：</strong>两市{total_amount_str}。主力净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿——<strong>机构出货、散户接盘</strong>的典型高位分歧结构。炸板率{zhaban_rate}%，情绪温度进入分歧期。
     </div>
     <div style="margin-top:10px" class="hbox blue">
       <strong>市场核心主线切换：</strong><span class="b b-r">{main_sector_name}+AI应用（计算机/广告营销）</span>接棒<span class="b b-grey">半导体</span>成为当日最强方向——{main_sector_name}板块主力净流入+{main_sector_net:.1f}亿，数字芯片设计+{sub_sector_net:.1f}亿，计算机+{em3_net:.1f}亿；<strong>三板块合计净流入{top3_net_sum:.1f}亿，占全市场主力净流入TOP3</strong>，新主线聚焦度集中。
