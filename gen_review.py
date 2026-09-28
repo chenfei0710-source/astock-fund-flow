@@ -102,6 +102,58 @@ else:
     nav_tag = f'🔴 主力流出 {zhuli:.0f}亿'
     nav_tag_style = 'background:rgba(12,166,120,.1);color:var(--down);border-color:rgba(12,166,120,.25)'
 
+# ── 动态叙事：基于当日指数涨跌+主力资金+情绪指标生成 ──
+def _sketch_narrative():
+    """走势素描段：基于当日 sh/sz/cy 涨跌动态生成"""
+    parts = []
+    # 涨跌方向判断
+    big_down = (sh_chg < -1.0) or (sz_chg < -1.5) or (cy_chg < -2.0)
+    flat_day = abs(sh_chg) < 0.15 and abs(sz_chg) < 0.15 and abs(cy_chg) < 0.2
+    if big_down:
+        tone = '单边下杀'
+        parts.append(f'今日市场单边走弱，上证 {sh_chg:+.2f}%、深证 {sz_chg:+.2f}%、创业板 {cy_chg:+.2f}%，三大指数齐跌，市场风险偏好快速回落')
+    elif zhuli > 0 and sh_chg > 0:
+        tone = '增量进攻'
+        parts.append(f'今日市场延续强势，上证 {sh_chg:+.2f}%、深证 {sz_chg:+.2f}%、创业板 {cy_chg:+.2f}%，主力净流入 +{zhuli:.0f}亿，资金面与情绪面共振向上')
+    elif flat_day:
+        tone = '窄幅震荡'
+        parts.append(f'今日指数层面"全线静止"——上证 {sh_chg:+.2f}%、深证 {sz_chg:+.2f}%、创业板 {cy_chg:+.2f}%，缩量横盘掩盖了板块剧烈切换')
+    else:
+        tone = '分化调整'
+        parts.append(f'今日市场分化加剧，上证 {sh_chg:+.2f}%、深证 {sz_chg:+.2f}%、创业板 {cy_chg:+.2f}%，指数表现不一，板块轮动加速')
+    # 资金结构
+    if zhuli < 0:
+        parts.append(f'主力净流出 {zhuli:.0f}亿（超大单 {chaoda:.0f}亿、大单 {dadan:.0f}亿），散户净流入 +{sanhu:.0f}亿——<strong>机构出货、散户接盘</strong>')
+    else:
+        parts.append(f'主力净流入 +{zhuli:.0f}亿，散户净流出 {abs(sanhu):.0f}亿——<strong>机构主导</strong>')
+    # 情绪
+    if zhaban_rate >= 20:
+        parts.append(f'炸板率 {zhaban_rate}% 偏高，情绪温度进入分歧/降温段')
+    return f'阶段判断：<strong>{tone}</strong>。' + '；'.join(parts) + '。'
+
+sketch_narrative = _sketch_narrative()
+
+def _emotion_narrative():
+    """情绪周期段：基于涨停数/炸板率/连板高度动态生成"""
+    if zhaban_rate >= 25 and zt_count < 40:
+        phase = '冰点/退潮段'
+        tone = '高度收敛、广度坍缩'
+    elif zhaban_rate >= 20:
+        phase = '分歧降温段'
+        tone = '高度维持但广度收敛'
+    elif zt_count >= 80 and zhaban_rate < 15:
+        phase = '扩张高潮段'
+        tone = '高度打开、广度扩散'
+    else:
+        phase = '修复扩散段'
+        tone = '情绪修复中'
+    return (f'<strong>阶段判断：{phase}（{tone}）</strong><br>'
+            f'连板高度 {max_lb} 板（{max_lb_stock}），涨停 {zt_count} 家、跌停 {dt_count} 家，'
+            f'炸板率 {zhaban_rate}%、晋级率 {jinji_rate}%。'
+            f'主力净流出 {abs(zhuli):.0f}亿{"，机构单日兑现" if zhuli < 0 else ""}——<strong>保住利润优先于进攻</strong>。')
+
+emotion_narrative = _emotion_narrative()
+
 # 板块数据 top5 —— EM 板块资金全 0 时回退到 THS（多源容灾）
 _em_all_zero = all(s.get('zhuli', 0) == 0 for s in em) if em else True
 if _em_all_zero and ths:
@@ -379,10 +431,10 @@ html = f'''<!DOCTYPE html>
   <div class="card" style="margin-top:4px">
     <div class="card-title"><span class="dot"></span>大盘走势素描</div>
     <div class="hbox" style="margin-bottom:10px">
-      修复行情进入<strong>第四天，高位缩量分化加剧</strong>。上证微涨+0.06%收十字星，深证微跌-0.05%，创业板平收+0.01%，指数层面"全线静止"掩盖了<strong>板块剧烈切换</strong>——传媒/计算机接力半导体成为新主线，旧主线PCB/风电继续走弱。
+      {sketch_narrative}
     </div>
     <div class="hbox red">
-      <strong style="color:var(--up)">量能关键信号：</strong>两市{total_amount}亿，较前日<strong>缩量约2%</strong>。主力净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿——<strong>机构出货、散户接盘</strong>的典型高位分歧结构。炸板率从24.3%升至{zhaban_rate}%，情绪温度从扩张期进入分歧期。
+      <strong style="color:var(--up)">量能关键信号：</strong>两市{total_amount}亿。主力净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿——<strong>机构出货、散户接盘</strong>的典型高位分歧结构。炸板率{zhaban_rate}%，情绪温度进入分歧期。
     </div>
     <div style="margin-top:10px" class="hbox blue">
       <strong>市场核心主线切换：</strong><span class="b b-r">{main_sector_name}+AI应用（计算机/广告营销）</span>接棒<span class="b b-grey">半导体</span>成为当日最强方向——{main_sector_name}板块主力净流入+{main_sector_net:.1f}亿，数字芯片设计+{sub_sector_net:.1f}亿，计算机+{em3_net:.1f}亿；<strong>三板块合计净流入{top3_net_sum:.1f}亿，占全市场主力净流入TOP3</strong>，新主线聚焦度集中。
@@ -437,8 +489,7 @@ html = f'''<!DOCTYPE html>
   <div class="card">
     <div class="card-title"><span class="dot"></span>2.3 情绪周期定位</div>
     <div class="hbox red" style="margin-bottom:10px">
-      <strong>阶段判断：修复扩散高潮后进入分歧降温段（第四天）</strong><br>
-      连板高度从4板升至{max_lb}板（{max_lb_stock}），但涨停家数从78家降至63家，炸板率从24.3%升至{zhaban_rate}%，晋级率从25.5%降至{jinji_rate}%——<strong>高度打开但广度收敛</strong>，情绪温度从扩张期进入分歧期。主力净流出{zhuli:.0f}亿是本轮修复以来首次机构单日兑现，<strong>节前窗口+高位分歧 = 保住利润优先于进攻</strong>。
+      {emotion_narrative}
     </div>
     <div class="hbox" style="font-size:.78rem">
       <strong>情绪温度读表：</strong>涨停63家（全部非ST）、跌停0家、炸板率{zhaban_rate}%、晋级率{jinji_rate}%、连板最高{max_lb}板（{max_lb_stock}）。主力净流出{zhuli:.2f}亿，散户净流入{sanhu:.1f}亿——<strong>机构与散户完全反向</strong>，情绪温度≈55/100，赚钱效应开始收敛。
