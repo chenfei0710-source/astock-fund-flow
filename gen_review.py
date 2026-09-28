@@ -467,7 +467,7 @@ html = f'''<!DOCTYPE html>
       </table>
     </div>
     <div class="hbox red" style="margin-top:12px;font-size:.78rem">
-      <strong>量能总结：</strong>主力合计净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿，中单-4.64亿——<strong>机构/主力开始兑现离场，散户接盘</strong>，这是高位分歧的典型资金结构，与9/18主力净流入+385.87亿的多头格局完全反转。
+      <strong>量能总结：</strong>主力合计净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿，中单{zhongdan:.2f}亿——<strong>机构/主力开始兑现离场，散户接盘</strong>，这是高位分歧的典型资金结构。
     </div>
   </div>
 
@@ -491,7 +491,7 @@ html = f'''<!DOCTYPE html>
       {emotion_narrative}
     </div>
     <div class="hbox" style="font-size:.78rem">
-      <strong>情绪温度读表：</strong>涨停63家（全部非ST）、跌停0家、炸板率{zhaban_rate}%、晋级率{jinji_rate}%、连板最高{max_lb}板（{max_lb_stock}）。主力净流出{zhuli:.2f}亿，散户净流入{sanhu:.1f}亿——<strong>机构与散户完全反向</strong>，情绪温度≈55/100，赚钱效应开始收敛。
+      <strong>情绪温度读表：</strong>涨停{zt_count}家（全部非ST）、跌停{dt_count}家、炸板率{zhaban_rate}%、晋级率{jinji_rate}%、连板最高{max_lb}板（{max_lb_stock}）。主力净流出{zhuli:.2f}亿，散户净流入{sanhu:.1f}亿——<strong>机构与散户完全反向</strong>，情绪温度≈55/100，赚钱效应开始收敛。
     </div>
   </div>
 
@@ -583,10 +583,10 @@ html = f'''<!DOCTYPE html>
       <div class="card-title"><span class="dot" style="background:var(--up)"></span>空头隐患（风险信号）</div>
       <ul class="cklist">
         <li style="color:var(--up)"><strong>主力净流出{zhuli:.2f}亿（本轮修复首次机构兑现）</strong>，高位分歧信号明确</li>
-        <li>炸板率{zhaban_rate}%（vs 9/18的24.3%），分歧大幅加剧</li>
-        <li>涨停63家（vs 9/18的78家），广度收敛</li>
+        <li>炸板率{zhaban_rate}%，分歧大幅加剧</li>
+        <li>涨停{zt_count}家、跌停{dt_count}家，广度收敛</li>
         <li>散户+{sanhu:.1f}亿接盘：机构出货散户接，典型高位反转结构</li>
-        <li>北证50-1.08%领跌，小盘尾部风险升温</li>
+        <li>北证50 {bj_chg:+.2f}%，小盘尾部风险升温</li>
         <li style="color:var(--up)"><strong>节前窗口已开启（9/25中秋，仅4个交易日）</strong>，历史节前缩量+高位兑现</li>
       </ul>
     </div>
@@ -817,8 +817,8 @@ html = f'''<!DOCTYPE html>
   <div class="card">
     <div class="card-title"><span class="dot" style="background:var(--up)"></span>高位分歧品种（机构出货方向）</div>
     <div class="mine"><span class="mine-ico">💣</span><div><div class="mine-nm">北证50（-1.08%）</div><div class="mine-desc">北证50领跌全场，小盘尾部风险升温，<strong style="color:var(--up)">回避北证方向所有标的</strong>。</div></div></div>
-    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">炸板率{zhaban_rate}%品种</div><div class="mine-desc">炸板率从24.3%升至{zhaban_rate}%，高位分歧加剧——所有涨停后炸板品种次日均有天地板风险，坚决回避。</div></div></div>
-    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">散户接盘品种</div><div class="mine-desc">主力{zhuli:.0f}亿+散户+158亿=机构出货散户接的典型高位反转结构，<strong>所有散户集中涌入的品种均为次日兑现预警</strong>。</div></div></div>
+    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">炸板率{zhaban_rate}%品种</div><div class="mine-desc">炸板率{zhaban_rate}%，高位分歧加剧——所有涨停后炸板品种次日均有天地板风险，坚决回避。</div></div></div>
+    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">散户接盘品种</div><div class="mine-desc">主力{zhuli:.0f}亿+散户+{sanhu:.0f}亿=机构出货散户接的典型高位反转结构，<strong>所有散户集中涌入的品种均为次日兑现预警</strong>。</div></div></div>
   </div>
 
   <div class="card">
