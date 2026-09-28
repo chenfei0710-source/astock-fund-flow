@@ -11,7 +11,7 @@ import re
 import gzip
 import ssl
 import urllib.request
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 # curl_cffi：模拟 Chrome TLS 指纹，绕过境外 IP 封锁
@@ -953,9 +953,10 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
                         if code in kline_map or code in kline_map_b:
                             continue  # 跳过已获取
                         try:
+                            start_d = date.today() - timedelta(days=90)
                             df_hist = ak.stock_zh_a_hist(
                                 symbol=code, period='daily',
-                                start_date=(date.today().replace(month=date.today().month-3) if date.today().month > 3 else date.today().replace(year=date.today().year-1, month=10)).strftime('%Y%m%d'),
+                                start_date=start_d.strftime('%Y%m%d'),
                                 end_date=date.today().strftime('%Y%m%d'),
                                 adjust='qfq'
                             )
@@ -1002,7 +1003,7 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
                 name = item.get('f14', '')
                 close = item.get('f2')
                 chg = item.get('f3')
-                vol_ratio = item.get('f5')
+                vol_ratio = item.get('f8')  # f8=量比，f5=成交量
                 if not (code and close and chg is not None):
                     continue
                 try:
