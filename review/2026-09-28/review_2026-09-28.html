@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股深度复盘 · 2026-09-28 · 节后首日暴杀</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0d1117;--card:#1c2128;--border:#30363d;--up:#FF4444;--down:#00CC88;--accent:#FF6B35;--text:#e6edf3;--muted:#8b949e;--focus:#FF6B35;--week:#4A9EFF;--watch:#8B949E;--bull:#00CC88;--bear:#FF4444;--neutral:#FFB800}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'PingFang SC',sans-serif;line-height:1.6}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+.nav{position:sticky;top:0;z-index:100;background:rgba(13,17,23,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.nav-title{font-size:18px;font-weight:700}
+.nav-date{color:var(--muted);font-size:14px}
+.nav-mode{display:flex;align-items:center;gap:8px}
+.mode-dot{width:10px;height:10px;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.mode-bear{background:var(--bear)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h2{font-size:18px;font-weight:700;margin-bottom:12px}
+.card h3{font-size:15px;font-weight:600;margin:12px 0 8px;color:var(--muted)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.stat{background:rgba(255,255,255,0.03);border-radius:8px;padding:14px;text-align:center}
+.stat-label{font-size:12px;color:var(--muted);margin-bottom:4px}
+.stat-value{font-size:22px;font-weight:700}
+.stat-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.up{color:var(--up)}.down{color:var(--down)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600;font-size:12px}
+td{padding:8px 10px;border-bottom:1px solid rgba(48,54,61,0.5)}
+tr:hover{background:rgba(255,255,255,0.02)}
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-focus{background:rgba(255,107,53,0.15);color:var(--focus);border:1px solid rgba(255,107,53,0.3)}
+.badge-week{background:rgba(74,158,255,0.15);color:var(--week);border:1px solid rgba(74,158,255,0.3)}
+.badge-watch{background:rgba(139,148,158,0.15);color:var(--watch);border:1px solid rgba(139,148,158,0.3)}
+.badge-bear{background:rgba(255,68,68,0.15);color:var(--bear);border:1px solid rgba(255,68,68,0.3)}
+.heat-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(48,54,61,0.3)}
+.heat-name{width:120px;font-size:13px;font-weight:500}
+.heat-bar{flex:1;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:12px;font-weight:600;color:white}
+.heat-pct{width:70px;text-align:right;font-size:13px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.grid-2{grid-template-columns:1fr}}
+.insight{background:rgba(255,107,53,0.05);border-left:3px solid var(--accent);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0}
+.insight-serenity{background:rgba(74,158,255,0.05);border-left-color:var(--week)}
+.chart-wrap{position:relative;height:200px;margin:12px 0}
+.footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 0;border-top:1px solid var(--border);margin-top:20px}
+.clock{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="nav">
+<div class="nav-title">📊 A股深度复盘</div>
+<div class="nav-mode">
+<span class="nav-date">2026-09-28 周一 · 节后首日</span>
+<span class="mode-dot mode-bear"></span>
+<span class="badge badge-bear">熊市模式 🔴</span>
+</div>
+<div class="clock" id="clock"></div>
+</div>
+<div class="container">
+
+<!-- 板块1：市场情绪仪表盘 -->
+<div class="card">
+<h2>📊 市场情绪仪表盘</h2>
+<div class="stats-grid">
+<div class="stat"><div class="stat-label">主力净流入</div><div class="stat-value down">-417.62亿</div><div class="stat-sub">超大单 -300亿</div></div>
+<div class="stat"><div class="stat-label">散户净流入</div><div class="stat-value up">+284.99亿</div><div class="stat-sub">散户接盘 4日递增</div></div>
+<div class="stat"><div class="stat-label">情绪模式</div><div class="stat-value"><span class="badge badge-bear">熊市模式 🔴</span></div><div class="stat-sub">主力流出≥100亿</div></div>
+<div class="stat"><div class="stat-label">5日均主力</div><div class="stat-value down">-204亿</div><div class="stat-sub">9/18 +145 → 9/28 -418</div></div>
+</div>
+<div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+<div class="insight">
+<strong>📌 情绪定级依据：</strong> 主力净流出 -417.62亿，连续第4个交易日净流出，幅度从 -153→-154→-328→-418 逐日扩大。散户净流入 +285亿，连续4日递增（+158→+149→+224→+285），形成"主力狂撤、散户猛接"的经典高位反转结构。节前已是 -328亿，节后首日非但没有修复，反而加速恶化 +27%。本轮修复行情结束的确认信号。
+</div>
+<h3>前5日主力资金对比</h3>
+<table>
+<tr><th>日期</th><th>主力</th><th>超大单</th><th>大单</th><th>散户</th><th>趋势</th></tr>
+<tr><td>9/18（周四）</td><td class="up">+145.14亿</td><td class="up">+137.33亿</td><td class="up">+7.81亿</td><td class="down">-24.34亿</td><td>🟢 多头</td></tr>
+<tr><td>9/21（周一）</td><td class="up">+30.62亿</td><td class="up">+29.61亿</td><td class="up">+1.00亿</td><td class="up">+27.71亿</td><td>🟡 衰退</td></tr>
+<tr><td>9/22（周二）</td><td class="down">-153.46亿</td><td class="down">-67.27亿</td><td class="down">-86.19亿</td><td class="up">+158.10亿</td><td>🔴 反转</td></tr>
+<tr><td>9/23（周二）</td><td class="down">-154.08亿</td><td class="down">-57.30亿</td><td class="down">-96.78亿</td><td class="up">+149.49亿</td><td>🔴 持续</td></tr>
+<tr><td>9/24（周四）</td><td class="down">-327.76亿</td><td class="down">-211.87亿</td><td class="down">-115.89亿</td><td class="up">+224.22亿</td><td>🔴 加速</td></tr>
+<tr style="background:rgba(255,68,68,0.05)"><td><strong>9/28（今天）</strong></td><td class="down"><strong>-417.62亿</strong></td><td class="down">-300.03亿</td><td class="down">-117.59亿</td><td class="up">+284.99亿</td><td>🔴 暴杀</td></tr>
+</table>
+</div>
+
+<!-- 板块2：板块资金热力图 -->
+<div class="card">
+<h2>🔥 板块资金热力图</h2>
+<h3>净流入 TOP5</h3>
+<div class="heat-row"><span class="heat-name">电力</span><div class="heat-bar" style="background:linear-gradient(90deg,#FF4444,#FF6B35);width:100%">+8.60亿</div><span class="heat-pct down">-0.14%</span></div>
+<div class="heat-row"><span class="heat-name">石油加工贸易</span><div class="heat-bar" style="background:linear-gradient(90deg,#FF4444,#FF6B35);width:70%">+6.04亿</div><span class="heat-pct down">-1.12%</span></div>
+<div class="heat-row"><span class="heat-name">养殖业</span><div class="heat-bar" style="background:linear-gradient(90deg,#FF4444,#FF6B35);width:65%">+5.54亿</div><span class="heat-pct up">+0.20%</span></div>
+<div class="heat-row"><span class="heat-name">煤炭开采加工</span><div class="heat-bar" style="background:linear-gradient(90deg,#FF4444,#FF6B35);width:41%">+3.55亿</div><span class="heat-pct down">-0.55%</span></div>
+<div class="heat-row"><span class="heat-name">汽车整车</span><div class="heat-bar" style="background:linear-gradient(90deg,#FF4444,#FF6B35);width:40%">+3.43亿</div><span class="heat-pct up">+1.72%</span></div>
+<h3>净流出 TOP5</h3>
+<div class="heat-row"><span class="heat-name">零售</span><div class="heat-bar" style="background:linear-gradient(90deg,#00CC88,#0d7c5a);width:58%;justify-content:flex-start;padding-left:8px">-4.97亿</div><span class="heat-pct down">-1.36%</span></div>
+<div class="heat-row"><span class="heat-name">金属新材料</span><div class="heat-bar" style="background:linear-gradient(90deg,#00CC88,#0d7c5a);width:57%;justify-content:flex-start;padding-left:8px">-4.94亿</div><span class="heat-pct down">-3.75%</span></div>
+<div class="heat-row"><span class="heat-name">保险</span><div class="heat-bar" style="background:linear-gradient(90deg,#00CC88,#0d7c5a);width:56%;justify-content:flex-start;padding-left:8px">-4.82亿</div><span class="heat-pct down">-1.21%</span></div>
+<div class="heat-row"><span class="heat-name">游戏</span><div class="heat-bar" style="background:linear-gradient(90deg,#00CC88,#0d7c5a);width:54%;justify-content:flex-start;padding-left:8px">-4.67亿</div><span class="heat-pct down">-2.58%</span></div>
+<div class="heat-row"><span class="heat-name">非金属材料</span><div class="heat-bar" style="background:linear-gradient(90deg,#00CC88,#0d7c5a);width:54%;justify-content:flex-start;padding-left:8px">-4.62亿</div><span class="heat-pct down">-5.39%</span></div>
+<div class="insight">
+<strong>📌 板块轮动判断：</strong> 节前主线（传媒/AI应用/半导体）全部退潮，资金切换至防御性板块（电力+煤炭+石油）和消费（汽车整车+养殖业）。方向：成长→防御/价值，典型避险切换。没有新主线确立，只有旧主线兑现。
+</div>
+</div>
+
+<!-- 板块3：今日选股信号 -->
+<div class="card">
+<h2>🎯 今日选股信号 + 策略复盘</h2>
+<div class="insight" style="background:rgba(255,68,68,0.05);border-left-color:var(--bear)">
+<strong>⚠️ 今日无新选股信号</strong> — 主力净流出 -418亿触发熊市模式，4点过滤门槛启动。当前环境不建议新建仓位。
+</div>
+<h3>9/23选股 · 节后验证（9/28收盘价）</h3>
+<table>
+<tr><th>标的</th><th>评分</th><th>9/23价</th><th>9/28价</th><th>涨跌</th><th>结果</th><th>Buffett徽章</th></tr>
+<tr><td>浙江龙盛 600352</td><td>4/5</td><td>12.62</td><td>12.25</td><td class="down">-2.94%</td><td>✗</td><td><span class="badge badge-week">本周机会</span></td></tr>
+<tr><td>厦门国贸 600755</td><td>4/5</td><td>5.81</td><td>5.76</td><td class="down">-0.86%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>长江传媒 600757</td><td>4/5</td><td>7.50</td><td>7.33</td><td class="down">-2.27%</td><td>✗</td><td><span class="badge badge-week">本周机会</span></td></tr>
+<tr><td>麦加芯彩 603062</td><td>4/5</td><td>38.80</td><td>36.75</td><td class="down">-5.28%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>宿迁联盛 603065</td><td>4/5</td><td>14.94</td><td>15.12</td><td class="up">+1.21%</td><td>✓</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>芯能科技 603105</td><td>4/5</td><td>8.53</td><td>8.94</td><td class="up">+4.80%</td><td>✓</td><td><span class="badge badge-focus">重点关注</span></td></tr>
+<tr><td>济民健康 603222</td><td>4/5</td><td>8.13</td><td>8.01</td><td class="down">-1.48%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>永杰新材 603271</td><td>4/5</td><td>40.38</td><td>38.18</td><td class="down">-5.45%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>杰克科技 603337</td><td>4/5</td><td>37.47</td><td>35.80</td><td class="down">-4.46%</td><td>✗</td><td><span class="badge badge-week">本周机会</span></td></tr>
+<tr><td>永安行 603776</td><td>4/5</td><td>20.64</td><td>20.71</td><td class="up">+0.34%</td><td>✓</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>来伊份 603777</td><td>4/5</td><td>14.19</td><td>13.59</td><td class="down">-4.23%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>汇通能源 600605</td><td>3/5</td><td>28.74</td><td>29.77</td><td class="down">-3.59%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>宁波中百 600857</td><td>3/5</td><td>20.71</td><td>18.64</td><td class="down">-10.00%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>浙江黎明 603048</td><td>3/5</td><td>25.70</td><td>24.75</td><td class="down">-3.69%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+<tr><td>300451</td><td>3/5</td><td>3.56</td><td>3.43</td><td class="down">-3.65%</td><td>✗</td><td><span class="badge badge-watch">观察</span></td></tr>
+</table>
+<div class="stats-grid" style="margin-top:12px">
+<div class="stat"><div class="stat-label">胜率</div><div class="stat-value down">13.3%</div><div class="stat-sub">2/15 上涨</div></div>
+<div class="stat"><div class="stat-label">平均收益</div><div class="stat-value down">-2.82%</div><div class="stat-sub">最大涨+4.80%</div></div>
+<div class="stat"><div class="stat-label">最大跌幅</div><div class="stat-value down">-10.00%</div><div class="stat-sub">宁波中百 跌停</div></div>
+<div class="stat"><div class="stat-label">策略评分</div><div class="stat-value down">1/5</div><div class="stat-sub">连续4日恶化</div></div>
+</div>
+<div class="insight">
+<strong>📌 策略胜率趋势：63% → 47% → 33% → 7% → 13%</strong>
+连续4个交易日策略失效。核心原因：选股基于技术面信号（MACD金叉+均线多头），但在主力连续流出 -899亿环境下，技术面信号全面失灵。
+<span class="badge badge-focus">固化改进</span> 主力净流出≥150亿时暂停技术面选股，选股池只从连续2日净流入板块中筛选。选股逻辑从"技术面驱动"切换为"资金面+防御驱动"。
+</div>
+</div>
+
+<!-- 板块4：Serenity 供应链扫描 -->
+<div class="card">
+<h2>🔍 Serenity 卡脖子扫描</h2>
+<p style="color:var(--muted);font-size:13px;margin-bottom:12px">对今日涨幅异动 + 资金净流入的标的/板块，执行供应链卡脖子分析</p>
+<div class="insight insight-serenity">
+<h3>候选1：电力板块 — 净流入 +8.60亿（全市场TOP1）</h3>
+<strong>产业链位置：</strong>发电端 → 特高压输电 → 配电网 → 终端用户<br>
+<strong>卡住的环节：</strong>特高压核心设备（换流阀/IGBT元器件）— 国产化率仍依赖少数供应商<br>
+<strong>证据强度：</strong>中等 — 电力板块今日净流入TOP1但涨幅仅-0.14%，属于防御性配置而非进攻性买入<br>
+<strong>市场是否已 price in：</strong>部分 — 电力板块本轮修复行情中持续被配置，但未出现涨停潮<br>
+<strong>研究优先级：</strong><span class="badge badge-week">本周机会</span> 关注浙江新能（领涨10.07%）是否为新能源发电方向的政策驱动
+</div>
+<div class="insight insight-serenity">
+<h3>候选2：汽车整车 — 净流入 +3.43亿 + 涨幅 +1.72%</h3>
+<strong>产业链位置：</strong>芯片设计 → 功率半导体 → 电控/电驱 → 整车 → 销售/充电<br>
+<strong>卡住的环节：</strong>车规级IGBT/SiC功率模块 — 仍部分依赖英飞凌/安森美，国产替代中（斯达半导/时代电气）<br>
+<strong>证据强度：</strong>较强 — 江淮汽车涨停9.99%，板块整体上涨且有资金支撑<br>
+<strong>市场是否已 price in：</strong>未充分 — 市场聚焦半导体主线时忽视了汽车产业链功率半导体缺口<br>
+<strong>研究优先级：</strong><span class="badge badge-focus">重点关注</span> 江淮汽车是否为整车出口逻辑（南美/中东市场）
+</div>
+<div class="insight insight-serenity">
+<h3>候选3：石油加工贸易 — 净流入 +6.04亿（全市场TOP2）</h3>
+<strong>产业链位置：</strong>原油勘探 → 炼化 → 化工新材料 → 包装/终端<br>
+<strong>卡住的环节：</strong>高端聚烯烃催化剂/POE胶膜料 — 仍依赖进口，国产突破中<br>
+<strong>证据强度：</strong>弱 — 板块涨幅-1.12%但净流入高，属于主力防守配置而非进攻<br>
+<strong>市场是否已 price in：</strong>已充分定价 — 石油板块属于传统防御，市场认知成熟<br>
+<strong>研究优先级：</strong><span class="badge badge-watch">观察</span> 荣盛石化（领涨4.04%）的炼化一体化布局
+</div>
+</div>
+
+<!-- 板块5：异动深度解读 -->
+<div class="card">
+<h2>⚡ 异动深度解读</h2>
+<div class="insight">
+<h3>异动1：主力净流出 -418亿 — 本轮修复行情最大单日流出</h3>
+<table>
+<tr><th>指标</th><th>9/18（修复起点）</th><th>9/24（节前最后）</th><th>9/28（今天）</th><th>变化</th></tr>
+<tr><td>主力净流入</td><td class="up">+145亿</td><td class="down">-328亿</td><td class="down">-418亿</td><td>加速恶化 +27%</td></tr>
+<tr><td>超大单</td><td class="up">+137亿</td><td class="down">-212亿</td><td class="down">-300亿</td><td>机构集中出逃</td></tr>
+<tr><td>散户</td><td class="down">-24亿</td><td class="up">+224亿</td><td class="up">+285亿</td><td>散户持续接盘</td></tr>
+</table>
+<br>
+<strong>表面现象：</strong>节后首日主力大幅流出，散户积极接盘<br>
+<strong>深层逻辑：</strong>9/18修复行情的本质是超跌反弹+政策博弈，主力在9/22开始兑现，节前加速撤退。节后首日没有新利好支撑，机构继续出货。<br>
+<strong>第一性原理：</strong>这是趋势性变化而非噪音 — 5日主力资金从+145→+31→-153→-154→-328→-418，趋势明确向下。散户接盘量递增（-24→+28→+158→+149→+224→+285），典型"聪明钱撤退、散户接最后一棒"结构。<br>
+<strong>3个月可验证指标：</strong>① 后续3个交易日主力是否转正 ② 北证50是否继续领跌 ③ 跌停数是否持续扩大
+</div>
+<div class="insight">
+<h3>异动2：非金属材料 -5.39% — 全市场最大跌幅板块</h3>
+<strong>表面现象：</strong>非金属材料板块暴跌5.39%，资金净流出-4.62亿<br>
+<strong>深层逻辑：</strong>非金属材料涵盖玻璃/陶瓷/新材料方向，前期修复行情中被炒作的周期新材料标的（天马新材等），节后遭机构集中兑现。<br>
+<strong>第一性原理：</strong>这是噪音 — 非金属材料板块体量小（净流出仅-4.62亿），不具备系统性意义。但作为情绪风向标，小盘材料板块暴跌通常意味着风险偏好快速收缩。<br>
+<strong>3个月可验证指标：</strong>① 天马新材是否持续下跌 ② 非金属材料板块资金是否转正 ③ 大盘风偏是否恢复
+</div>
+</div>
+
+<!-- 板块6：明日前瞻 -->
+<div class="card">
+<h2>🔮 明日前瞻（9/29 周二）</h2>
+<div class="grid-2">
+<div>
+<h3>重点关注方向</h3>
+<div class="insight insight-serenity">
+<strong>1. 电力/公用事业 — 防御主线</strong><br>
+连续3日主力净流入，今日+8.60亿为全市场TOP1。节后避险资金首选方向，浙江新能涨停10.07%验证强度。明日观察是否有跟涨扩散。
+</div>
+<div class="insight insight-serenity">
+<strong>2. 汽车整车 — 出口逻辑</strong><br>
+江淮汽车涨停9.99%+板块净流入+3.43亿，是今日唯一"涨+资金流入"的进攻性板块。如果明日延续，可能是节后新主线候选。
+</div>
+<div class="insight insight-serenity">
+<strong>3. 超跌反弹机会</strong><br>
+连续4日主力流出超500亿，若9/29主力流出缩窄至-200亿以内，可能触发技术性反弹。关注被错杀的优质标的。
+</div>
+</div>
+<div>
+<h3>关键风险点</h3>
+<div class="insight" style="background:rgba(255,68,68,0.05);border-left-color:var(--bear)">
+<strong>⚠️ 风险1：主力流出加速</strong><br>
+-153→-154→-328→-418，如果9/29继续扩大至-500亿+，可能触发系统性下跌。散户接盘已4日，一旦散户信心崩塌，将形成多杀多。
+</div>
+<div class="insight" style="background:rgba(255,68,68,0.05);border-left-color:var(--bear)">
+<strong>⚠️ 风险2：节前选股持续失效</strong><br>
+策略胜率从63%降至13%，如果明日继续低于30%，说明当前选股逻辑在熊市模式完全失效，需暂停信号选股。
+</div>
+</div>
+</div>
+</div>
+
+<!-- 板块7：操作建议 -->
+<div class="card">
+<h2>📋 操作建议</h2>
+<div class="insight" style="background:rgba(255,107,53,0.05);border-left-color:var(--accent)">
+<h3>🔴 熊市模式 · 4点过滤门槛</h3>
+主力净流出 -418亿，连续4日流出且加速。仓位上限：≤2成。现金比例：≥8成。
+</div>
+<table>
+<tr><th>级别</th><th>标的/方向</th><th>逻辑</th><th>操作</th><th>止损</th></tr>
+<tr><td><span class="badge badge-focus">重点关注</span></td><td>电力板块（浙江新能/华能国际）</td><td>连续3日资金净流入+今日TOP1，防御主线确立</td><td>低吸，仓位≤1成</td><td>-5%</td></tr>
+<tr><td><span class="badge badge-focus">重点关注</span></td><td>汽车整车（江淮汽车）</td><td>涨停+板块资金流入，节后唯一进攻方向</td><td>竞价观察，高开3%+带量可轻仓</td><td>-5%</td></tr>
+<tr><td><span class="badge badge-week">本周机会</span></td><td>芯能科技 603105</td><td>9/23选股中唯一节后上涨+4.80%，光伏+电力双主线</td><td>回踩不破8.5可低吸</td><td>-7%</td></tr>
+<tr><td><span class="badge badge-watch">观察</span></td><td>超跌反弹候选</td><td>若9/29主力缩窄至-200亿内，关注被错杀标的</td><td>等待信号确认</td><td>—</td></tr>
+<tr><td><span class="badge badge-watch">观察</span></td><td>煤炭/石油（郑州煤电/荣盛石化）</td><td>防御配置方向，但涨幅弱、进攻性不足</td><td>观察不介入</td><td>—</td></tr>
+</table>
+<div class="insight" style="background:rgba(255,68,68,0.05);border-left-color:var(--bear)">
+<strong>⛔ 必须回避：</strong><br>
+• 非金属材料板块（-5.39%，天马新材等）— 继续下杀风险大<br>
+• 零售/游戏/保险 — 资金连续流出，板块性回避<br>
+• 宁波中百 600857 — 节后跌停-10%，典型高位炸板品种<br>
+• 北证50方向 — 小盘尾部风险<br>
+• 所有散户涌入占比>70%的标的 — 典型高位反转结构
+</div>
+<div class="insight">
+<strong>📌 仓位纪律：</strong><br>
+• 9/29 周二：总仓 ≤2成（主力流出≥300亿则降至1成）<br>
+• 单票止损线：-5%（熊市模式收紧，从-7%降至-5%）<br>
+• 现金比例：≥8成<br>
+• 不追涨停、不参与超跌反弹、不加仓亏损标的
+</div>
+</div>
+
+</div>
+<div class="footer">
+<p>A股深度复盘 · 2026-09-28 · 数据来源：东方财富 + 同花顺</p>
+<p>Serenity 供应链扫描 + Buffett 质量门 + 资金流向三框架融合分析</p>
+<p>仅供参考，不构成投资建议</p>
+</div>
+<script>
+function updateClock(){const n=new Date;document.getElementById('clock').textContent=n.toLocaleTimeString('zh-CN',{hour12:false})}
+updateClock();setInterval(updateClock,1000);
+const ctx=document.getElementById('trendChart').getContext('2d');
+new Chart(ctx,{
+type:'bar',
+data:{
+labels:['9/18','9/21','9/22','9/23','9/24','9/28'],
+datasets:[{
+label:'主力净流入(亿)',
+data:[145.14,30.62,-153.46,-154.08,-327.76,-417.62],
+backgroundColor:['#FF4444','#FFB800','#00CC88','#00CC88','#00CC88','#00CC88'],
+borderColor:['#FF4444','#FFB800','#00CC88','#00CC88','#00CC88','#00CC88'],
+borderWidth:1
+},{
+label:'散户净流入(亿)',
+data:[-24.34,27.71,158.10,149.49,224.22,284.99],
+type:'line',
+borderColor:'#4A9EFF',
+backgroundColor:'rgba(74,158,255,0.1)',
+tension:0.3
+}]
+},
+options:{
+responsive:true,
+maintainAspectRatio:false,
+plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}},
+scales:{
+x:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,0.3)'}},
+y:{ticks:{color:'#8b949e',callback:v=>v+'亿'},grid:{color:'rgba(48,54,61,0.3)'}}
+}
+}
+});
+</script>
+</body>
+</html>
