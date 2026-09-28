@@ -22,6 +22,17 @@ git_push() {
     fi
 }
 
+# 时间窗：只在 17:00-23:00 之间才允许补抓自愈（避免上午抢跑撞网络抖动）
+HOUR=$(TZ='Asia/Shanghai' date '+%H')
+if [ "$HOUR" -lt 17 ] || [ "$HOUR" -ge 23 ]; then
+    echo "[$TS] ⏸️  非补抓时间窗（当前 $HOUR 时，仅 17-23 时允许），仅做完整性检查" >> "$LOG"
+    # 仍然生成复盘报告，但不重跑 scraper
+    cd "$REPO_DIR" || exit 1
+    SKIP_HEAL=1
+else
+    SKIP_HEAL=0
+fi
+
 echo "[$TS] ===== 自检开始 DATE=$DATE =====" >> "$LOG"
 
 cd "$REPO_DIR" || exit 1
@@ -63,8 +74,16 @@ print(n)
 echo "[$TS] sector_flow_ths[$DATE]=$THS_COUNT 条，stock_reco=$RECO_COUNT 条，market_flow=$MF_COUNT 条" >> "$LOG"
 
 # 3. 数据缺失时：本地重跑爬虫（国内IP，EM+THS都能抓）
-if [ "$THS_COUNT" = "0" ] || [ -z "$THS_COUNT" ] || [ "$MF_COUNT" = "0" ] || [ -z "$MF_COUNT" ]; then
-    echo "[$TS] ⚠️  同花顺数据缺失，触发本地自愈..." >> "$LOG"
+# 完整性检查：THS 板块、market_flow、stock_reco 任一为空都触发自愈
+NEED_HEAL=0
+[ "$THS_COUNT" = "0" ] || [ -z "$THS_COUNT" ] && NEED_HEAL=1
+[ "$MF_COUNT" = "0" ] || [ -z "$MF_COUNT" ] && NEED_HEAL=1
+[ "$RECO_COUNT" = "0" ] || [ -z "$RECO_COUNT" ] && NEED_HEAL=1
+
+if [ "$NEED_HEAL" = "1" ] && [ "$SKIP_HEAL" = "1" ]; then
+    echo "[$TS] ⚠️  数据缺失（THS=$THS_COUNT MF=$MF_COUNT RECO=$RECO_COUNT）但非补抓时间窗，跳过自愈（17时后再补）" >> "$LOG"
+elif [ "$NEED_HEAL" = "1" ]; then
+    echo "[$TS] ⚠️  数据缺失（THS=$THS_COUNT MF=$MF_COUNT RECO=$RECO_COUNT），触发本地自愈..." >> "$LOG"
 
     # 本地环境补全依赖
     $PYTHON -m pip install --quiet curl_cffi py-mini-racer requests akshare yfinance >> "$LOG" 2>&1

@@ -865,6 +865,8 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
     kline_map = {}
     batch_size = 80
     total_batches = (len(yf_tickers) + batch_size - 1) // batch_size
+    rate_limit_streak = 0   # 连续限流计数
+    switched_to_plan_b = False
 
     for i in range(0, len(yf_tickers), batch_size):
         batch = yf_tickers[i:i+batch_size]
@@ -876,8 +878,15 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
                 auto_adjust=True, progress=False, threads=False,
             )
             if df.empty:
-                await asyncio.sleep(2)
+                # 空结果可能是限流，连续 2 次就切 Plan B
+                rate_limit_streak += 1
+                if rate_limit_streak >= 2 and bn >= 2:
+                    print(f"[全市场扫描] yfinance 连续 {rate_limit_streak} 批失败，切换 Plan B: akshare 按板块分批")
+                    switched_to_plan_b = True
+                    break
+                await asyncio.sleep(5)
                 continue
+            rate_limit_streak = 0  # 成功就重置计数
 
             is_multi = df.columns.nlevels > 1
             for ticker in batch:
@@ -902,10 +911,121 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
                 except Exception: pass
             print(f"  批次 {bn}: 累计有效 {len(kline_map)} 只", flush=True)
         except Exception as e:
-            print(f"  批次 {bn} 失败: {e}", flush=True)
+            err_str = str(e)
+            if 'Rate' in err_str or 'Too Many' in err_str:
+                rate_limit_streak += 1
+                print(f"  批次 {bn} 限流: {err_str[:80]}", flush=True)
+                if rate_limit_streak >= 2 and bn >= 2:
+                    print(f"[全市场扫描] yfinance 连续限流 {rate_limit_streak} 批，切换 Plan B: akshare 按板块分批")
+                    switched_to_plan_b = True
+                    break
+            else:
+                print(f"  批次 {bn} 失败: {e}", flush=True)
         await asyncio.sleep(2)
 
     print(f"[全市场扫描] yfinance 完成，有效 {len(kline_map)} 只")
+
+    # ── Plan B: yfinance 限流或返回过少时，用 akshare 按板块分批拉 K 线 ──
+    # 触发条件：yfinance 被切走，或返回的有效股票 < 200（不够选 TOP15）
+    if switched_to_plan_b or len(kline_map) < 200:
+        print(f"[全市场扫描] Plan B: akshare stock_zh_a_hist 按板块分批")
+        # 用申万一级行业分批，避免单只拉全市场超时
+        try:
+            sw_industries = ak.stock_board_industry_name_em()
+            print(f"[Plan B] 申万一级行业 {len(sw_industries)} 个")
+            kline_map_b = {}
+            deadline = asyncio.get_event_loop().time() + 8 * 60  # 最长 8 分钟
+            for _, ind_row in sw_industries.iterrows():
+                if asyncio.get_event_loop().time() > deadline:
+                    print(f"[Plan B] 8 分钟超时，停止拉取（已获取 {len(kline_map_b)} 只）")
+                    break
+                board_name = ind_row.get('板块名称') or ind_row.iloc[0]
+                try:
+                    df_cons = ak.stock_board_industry_cons_em(symbol=board_name)
+                    if df_cons is None or df_cons.empty:
+                        continue
+                    code_col_b = next((c for c in df_cons.columns if '代码' in c), df_cons.columns[0])
+                    name_col_b = next((c for c in df_cons.columns if '名称' in c), None)
+                    for _, stock_row in df_cons.iterrows():
+                        code = str(stock_row[code_col_b]).zfill(6)
+                        if code not in yf_to_code.values():
+                            continue
+                        if code in kline_map or code in kline_map_b:
+                            continue  # 跳过已获取
+                        try:
+                            df_hist = ak.stock_zh_a_hist(
+                                symbol=code, period='daily',
+                                start_date=(date.today().replace(month=date.today().month-3) if date.today().month > 3 else date.today().replace(year=date.today().year-1, month=10)).strftime('%Y%m%d'),
+                                end_date=date.today().strftime('%Y%m%d'),
+                                adjust='qfq'
+                            )
+                            if df_hist is None or df_hist.empty or len(df_hist) < 5:
+                                continue
+                            closes = df_hist['收盘'].tolist()
+                            opens = df_hist['开盘'].tolist()
+                            volumes = df_hist['成交量'].tolist() if '成交量' in df_hist.columns else [0]*len(closes)
+                            kline_map_b[code] = {
+                                'closes': closes, 'opens': opens, 'volumes': volumes
+                            }
+                            if name_col_b and code not in stock_codes:
+                                stock_codes[code] = str(stock_row[name_col_b])
+                        except Exception:
+                            continue
+                    print(f"[Plan B] {board_name}: 累计 {len(kline_map_b)} 只", flush=True)
+                except Exception as e:
+                    print(f"[Plan B] {board_name} 失败: {e}", flush=True)
+                await asyncio.sleep(0.5)
+            kline_map.update(kline_map_b)
+            print(f"[Plan B] 完成，Plan A+B 合计 {len(kline_map)} 只")
+        except Exception as e:
+            print(f"[Plan B] akshare 板块抓取失败: {e}")
+
+    # ── Plan C: Plan B 仍不足时，用 EM push2 全市场快照（仅价+涨跌幅，跳过技术面评分）──
+    if len(kline_map) < 200 and CURL_AVAILABLE:
+        print(f"[全市场扫描] Plan C: EM push2 clist 全市场快照（无历史K线，按涨幅+主力净流入排序）")
+        try:
+            r = curl_requests.get('https://push2.eastmoney.com/api/qt/clist/get',
+                params={
+                    'pn': 1, 'pz': 5000, 'po': 1, 'np': 1,
+                    'fltt': 2, 'invt': 2, 'fid': 'f3',  # 按涨幅排序
+                    'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',
+                    'fields': 'f2,f3,f5,f6,f8,f12,f14,f15,f16,f17,f62',
+                },
+                impersonate='chrome', timeout=30)
+            d = r.json()
+            spot_list = d.get('data', {}).get('diff', [])
+            print(f"[Plan C] EM clist 返回 {len(spot_list)} 只")
+            # 直接构建 spot candidates（不计算技术面）
+            spot_candidates = []
+            for item in spot_list:
+                code = str(item.get('f12', '')).zfill(6)
+                name = item.get('f14', '')
+                close = item.get('f2')
+                chg = item.get('f3')
+                vol_ratio = item.get('f5')
+                if not (code and close and chg is not None):
+                    continue
+                try:
+                    close = float(close)
+                    chg = float(chg)
+                    if close <= 0 or not (1.0 <= chg <= 6.0):
+                        continue
+                    zhuli = ths_stock_map.get(code, 0.0)
+                    spot_candidates.append({
+                        'code': code, 'name': name,
+                        'price': round(close, 2), 'chg': round(chg, 2),
+                        'zhuli': zhuli,
+                        'vol_ratio': float(vol_ratio) if vol_ratio else 1.0,
+                    })
+                except (ValueError, TypeError):
+                    continue
+            spot_candidates.sort(key=lambda x: (x['zhuli'], x['chg']), reverse=True)
+            top15_spot = spot_candidates[:15]
+            print(f"[Plan C] 选出 {len(top15_spot)} 只（按主力净流入+涨幅排序，无技术面评分）")
+            if top15_spot:
+                return [{'sector': '全市场精选', 'stocks': top15_spot}], {s['code']: s['price'] for s in top15_spot}
+        except Exception as e:
+            print(f"[Plan C] EM clist 失败: {e}")
     if not kline_map:
         return [{'sector': '全市场精选', 'stocks': []}], {}
 
@@ -999,22 +1119,60 @@ def _fetch_prices_from_em(code_list):
         return {}
     def to_secid(code):
         return f'1.{code}' if code.startswith('6') else f'0.{code}'
-    secids = ','.join(to_secid(c) for c in code_list[:50])  # 限制 50 个以内
+    # 分批调用，每批 50 只（API 上限）
+    price_map = {}
+    for i in range(0, len(code_list), 50):
+        batch = code_list[i:i+50]
+        secids = ','.join(to_secid(c) for c in batch)
+        try:
+            r = curl_requests.get('https://push2.eastmoney.com/api/qt/ulist.np/get',
+                params={'secids': secids, 'fields': 'f2,f3,f12', 'fltt': '2'},
+                impersonate='chrome', timeout=15)
+            d = r.json()
+            for item in d.get('data', {}).get('diff', []):
+                code = item.get('f12', '')
+                close = item.get('f2')
+                if close and code:
+                    price_map[str(code)] = float(close)
+        except Exception as e:
+            print(f"[EM价格] Plan B 批次 {i//50+1} 失败: {e}")
+            continue
+    print(f"[EM价格] Plan B 获取 {len(price_map)}/{len(code_list)} 只价格")
+    return price_map
+
+
+def _fetch_prices_from_akshare_spot(code_list):
+    """Plan C: akshare 全市场快照（EM push2 失败时备用，一次拉全市场）"""
+    if not code_list:
+        return {}
     try:
-        r = curl_requests.get('https://push2.eastmoney.com/api/qt/ulist.np/get',
-            params={'secids': secids, 'fields': 'f2,f3,f12', 'fltt': '2'},
-            impersonate='chrome', timeout=15)
-        d = r.json()
+        import akshare as ak
+        df = ak.stock_zh_a_spot_em()
+        if df is None or df.empty:
+            return {}
+        code_col = next((c for c in df.columns if '代码' in c), '代码')
+        # f2 对应"最新价"列
+        price_col = next((c for c in df.columns if '最新价' in c or '现价' in c), None)
+        if not price_col:
+            # 回退取 close 字段
+            price_col = df.columns[3] if len(df.columns) > 3 else None
+        if not price_col:
+            return {}
+        code_set = {str(c).zfill(6) for c in code_list}
         price_map = {}
-        for item in d.get('data', {}).get('diff', []):
-            code = item.get('f12', '')
-            close = item.get('f2')
-            if close and code:
-                price_map[str(code)] = float(close)
-        print(f"[EM价格] Plan B 获取 {len(price_map)}/{len(code_list)} 只价格")
+        for _, row in df.iterrows():
+            code = str(row[code_col]).zfill(6)
+            if code in code_set:
+                try:
+                    p = float(row[price_col])
+                    if p > 0:
+                        price_map[code] = p
+                except (ValueError, TypeError):
+                    continue
+        print(f"[akshare快照] Plan C 获取 {len(price_map)}/{len(code_list)} 只价格")
         return price_map
     except Exception as e:
-        print(f"[EM价格] Plan B 失败: {e}")
+        print(f"[akshare快照] Plan C 失败: {e}")
         return {}
 
 def run_strategy_review(trade_date, today_price_map):
@@ -1368,12 +1526,16 @@ async def main():
                     conn.close()
                     code_list = [r[0] for r in prev_codes]
                     price_map = _fetch_prices_from_em(code_list)
+                    # Plan B 也失败 → Plan C: akshare 全市场快照
+                    if not price_map:
+                        print("[复盘] Plan B 也失败，启用 Plan C: akshare 全市场快照")
+                        price_map = _fetch_prices_from_akshare_spot(code_list)
                 else:
                     conn.close()
             if price_map:
                 run_strategy_review(trade_date, price_map)
             else:
-                print("[复盘] 无价格数据（Plan A/B 均失败），跳过")
+                print("[复盘] 无价格数据（Plan A/B/C 均失败），跳过")
         except Exception as e:
             print(f"[复盘] 失败: {e}")
 
