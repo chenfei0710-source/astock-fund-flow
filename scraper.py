@@ -353,16 +353,21 @@ def save_market_flow(data):
 
 # ── 同花顺行业板块 ─────────────────────────────────────────
 def _get_hexin_v():
-    import py_mini_racer, importlib, os
-    # 找 akshare 包路径获取 ths.js
+    """生成同花顺 hexin-v 验证token（用 Node.js 替代 py_mini_racer）"""
+    import subprocess
     import akshare
     akshare_dir = Path(akshare.__file__).parent
     ths_js_path = akshare_dir / "stock_feature" / "ths.js"
     with open(ths_js_path) as f:
         js_content = f.read()
-    ctx = py_mini_racer.MiniRacer()
-    ctx.eval(js_content)
-    return ctx.call("v")
+    wrapper = js_content + '\nconsole.log(v());'
+    result = subprocess.run(
+        ['node', '-e', wrapper],
+        capture_output=True, text=True, timeout=10
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise RuntimeError(f"Node.js hexin-v 生成失败: {result.stderr}")
+    return result.stdout.strip()
 
 def fetch_ths_sector_flow():
     print("[同花顺] 获取行业资金流向...")
@@ -1314,7 +1319,7 @@ async def main():
 
     init_db()
 
-    def run_all_steps():
+    async def run_all_steps():
         """执行全部抓取步骤"""
         print("── Step 1: 东方财富板块资金 ──")
         em_items = fetch_em_sector_flow(trade_date)
@@ -1393,7 +1398,7 @@ async def main():
             print(f"[涨停统计] 失败: {e}")
 
     # 首次执行
-    run_all_steps()
+    await run_all_steps()
 
     # ── 自检+补抓：关键表为空则重试，最多3次，每次间隔10分钟 ──
     import time as _time
@@ -1426,7 +1431,7 @@ async def main():
         else:
             print(f"\n⚠️ 第{attempt+1}次自检发现缺失: {missing}，等待10分钟后重试...")
             _time.sleep(600)
-            run_all_steps()
+            await run_all_steps()
 
     print(f"\n✅ 完成: {trade_date}")
 

@@ -3,6 +3,9 @@
 # 在数据抓取(15:35) + 自愈校验(15:50) + 报告生成 全部完成后触发
 # 同时发送 macOS 通知 + 飞书机器人"富哥小跟班"消息
 
+# ── crontab 环境下 PATH 不完整，导致 python3/curl/osascript 找不到 ──
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Developer/CommandLineTools/usr/bin:$HOME/.local/bin:$PATH"
+
 REPO_DIR="/Users/admin/.assistant/fund_flow_github"
 PYTHON="/Library/Developer/CommandLineTools/usr/bin/python3"
 DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
