@@ -1545,25 +1545,33 @@ async def main():
 
         print("── Step 5: 策略复盘（检验昨日推荐表现）──")
         try:
-            if not price_map:
-                # Plan B: yfinance 无数据时用东方财富 push2 个股实时 API
-                print("[复盘] price_map 为空，启用 Plan B: 东方财富个股实时 API")
-                conn = sqlite3.connect(DB_PATH)
-                prev_row = conn.execute(
-                    "SELECT DISTINCT date FROM stock_reco WHERE date < ? ORDER BY date DESC LIMIT 1",
-                    (trade_date,)).fetchone()
-                if prev_row:
-                    prev_codes = conn.execute(
-                        "SELECT stock_code FROM stock_reco WHERE date=?", (prev_row[0],)).fetchall()
-                    conn.close()
-                    code_list = [r[0] for r in prev_codes]
-                    price_map = _fetch_prices_from_em(code_list)
-                    # Plan B 也失败 → Plan C: akshare 全市场快照
-                    if not price_map:
-                        print("[复盘] Plan B 也失败，启用 Plan C: akshare 全市场快照")
-                        price_map = _fetch_prices_from_akshare_spot(code_list)
-                else:
-                    conn.close()
+            # Step 4 的 price_map 只包含今日选出的股票，不包含昨日推荐股票
+            # 总是查昨日推荐股票代码，用 Plan B/C 补全价格
+            conn = sqlite3.connect(DB_PATH)
+            prev_row = conn.execute(
+                "SELECT DISTINCT date FROM stock_reco WHERE date < ? ORDER BY date DESC LIMIT 1",
+                (trade_date,)).fetchone()
+            if prev_row:
+                prev_codes = conn.execute(
+                    "SELECT stock_code FROM stock_reco WHERE date=?", (prev_row[0],)).fetchall()
+                conn.close()
+                code_list = [r[0] for r in prev_codes]
+                # 用现有的 price_map 起步，补全昨日推荐股票的价格
+                review_price_map = dict(price_map) if price_map else {}
+                # 检查昨日推荐股票是否都有价格，缺的用 Plan B/C 补
+                missing = [c for c in code_list if c not in review_price_map]
+                if missing:
+                    print(f"[复盘] 昨日推荐 {len(code_list)} 只，{len(missing)} 只缺价，启用 Plan B: EM push2")
+                    em_map = _fetch_prices_from_em(missing)
+                    review_price_map.update(em_map)
+                    still_missing = [c for c in missing if c not in review_price_map]
+                    if still_missing:
+                        print(f"[复盘] Plan B 后仍缺 {len(still_missing)} 只，启用 Plan C: akshare 全市场快照")
+                        ak_map = _fetch_prices_from_akshare_spot(still_missing)
+                        review_price_map.update(ak_map)
+                price_map = review_price_map
+            else:
+                conn.close()
             if price_map:
                 run_strategy_review(trade_date, price_map)
             else:
