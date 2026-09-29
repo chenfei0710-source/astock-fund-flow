@@ -728,21 +728,38 @@ def parse_ths_stock_map(raw_rows):
             continue
     return result
 
+def _em_get(url, params=None, timeout=15):
+    """EM API 请求：curl_cffi 失败时自动回退 urllib。"""
+    # 先试 curl_cffi
+    if CURL_AVAILABLE:
+        try:
+            r = curl_requests.get(url, params=params, impersonate='chrome', timeout=timeout)
+            return r.json()
+        except Exception:
+            pass
+    # 回退 urllib
+    import urllib.parse
+    full_url = url + ('?' + urllib.parse.urlencode(params) if params else '')
+    req = urllib.request.Request(full_url, headers={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://quote.eastmoney.com/',
+        'Accept': '*/*',
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read())
+
 async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_threshold):
     """Plan C: EM clist 选 TOP30 候选 + push2his 拉历史 K 线算完整技术面。
     返回 (reco_list, price_map) 或 ([], {}) 失败时。"""
-    if not CURL_AVAILABLE:
-        return [], {}
     print(f"[全市场扫描] Plan C: EM clist 选 TOP30 + push2his 拉历史 K 线")
     try:
-        r = curl_requests.get('https://push2.eastmoney.com/api/qt/clist/get',
+        d = _em_get('https://push2.eastmoney.com/api/qt/clist/get',
             params={
                 'pn': 1, 'pz': 5000, 'po': 1, 'np': 1,
                 'fltt': 2, 'invt': 2, 'fid': 'f3',
                 'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',
                 'fields': 'f2,f3,f5,f6,f8,f10,f12,f14,f15,f16,f17,f18,f7',
-            },
-            impersonate='chrome', timeout=30)
+            }, timeout=30)
         d = r.json()
         spot_list = d.get('data', {}).get('diff', [])
         print(f"[Plan C] EM clist 返回 {len(spot_list)} 只")
@@ -787,17 +804,15 @@ async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_thresho
             klines = []
             for attempt in range(2):
                 try:
-                    kr = curl_requests.get('https://push2his.eastmoney.com/api/qt/stock/kline/get',
+                    kd = _em_get('https://push2his.eastmoney.com/api/qt/stock/kline/get',
                         params={
                             'secid': secid,
                             'fields1': 'f1,f2,f3',
                             'fields2': 'f51,f52,f53,f54,f55,f56,f57',
                             'klt': '101', 'fqt': '1',
-                            'beg': (date.today() - timedelta(days=120)).strftime('%Y%m%d'),  # 120 日历日 ≈ 80 交易日
+                            'beg': (date.today() - timedelta(days=120)).strftime('%Y%m%d'),
                             'end': date.today().strftime('%Y%m%d'),
-                        },
-                        impersonate='chrome', timeout=10)
-                    kd = kr.json()
+                        }, timeout=10)
                     klines = kd.get('data', {}).get('klines', [])
                     if klines:
                         break
