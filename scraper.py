@@ -339,6 +339,17 @@ def save_market_flow(data):
         return
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+    # 防覆盖：估算值不能覆盖已有真实值
+    new_source = data.get('source', '')
+    is_estimate = '估算' in new_source or 'estimate' in new_source.lower()
+    if is_estimate:
+        existing = cur.execute(
+            "SELECT source FROM market_flow WHERE date=?", (data['date'],)
+        ).fetchone()
+        if existing and existing[0] and '估算' not in existing[0]:
+            print(f"[market_flow] 保留已有真实值（source={existing[0]}），不覆盖为估算值")
+            conn.close()
+            return
     cur.execute("""
         INSERT OR REPLACE INTO market_flow
         (date, zhuli_net, chaoda_net, dadan_net, zhongdan_net, sanhu_net, source)

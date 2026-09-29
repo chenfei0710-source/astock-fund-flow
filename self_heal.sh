@@ -131,19 +131,51 @@ fi
 echo "[$TS] 生成复盘报告..." >> "$LOG"
 $PYTHON "$REPO_DIR/gen_review.py" >> "$LOG" 2>&1
 if [ $? -eq 0 ]; then
-    # 校验报告文件：检查关键数据点是否写入
     REPORT_FILE="review/$DATE/review_$DATE.html"
     if [ -f "$REPORT_FILE" ]; then
         FILE_SIZE=$(wc -c < "$REPORT_FILE")
-        # 检查报告里是否包含当日日期和主力资金数据
-        if grep -q "$DATE" "$REPORT_FILE" && grep -q "主力" "$REPORT_FILE"; then
-            echo "[$TS] ✅ 报告校验通过 ($FILE_SIZE bytes)" >> "$LOG"
-            git add review/ >> "$LOG" 2>&1
+        # 数据自检：对照数据库逐项校验 HTML 数值
+        VERIFY_OUT=$($PYTHON "$REPO_DIR/verify_report.py" "$DATE" 2>&1)
+        VERIFY_EXIT=$?
+        echo "$VERIFY_OUT" >> "$LOG"
+        if [ $VERIFY_EXIT -eq 0 ]; then
+            echo "[$TS] ✅ 数据自检通过 ($FILE_SIZE bytes)" >> "$LOG"
+            git add review/ data/ fund_flow.db >> "$LOG" 2>&1
             git diff --cached --quiet || git commit -m "复盘报告: $DATE" >> "$LOG" 2>&1
             git_push
             echo "[$TS] ✅ 复盘报告已生成并推送" >> "$LOG"
         else
-            echo "[$TS] ❌ 报告校验失败：缺少关键数据" >> "$LOG"
+            echo "[$TS] ❌ 数据自检失败：HTML 数值与数据库不一致，不推送" >> "$LOG"
+            echo "[$TS] 需人工检查 verify_report.py 输出后再决定是否 push" >> "$LOG"
+            # 飞书告警
+            FEISHU_CONFIG="$REPO_DIR/.feishu.env"
+            if [ -f "$FEISHU_CONFIG" ]; then
+                source "$FEISHU_CONFIG"
+                ALERT_CONTENT="⚠️ A股复盘数据自检失败 · $DATE
+verify_report.py 发现 HTML 数值与数据库不一致，已阻止 push。
+
+$(echo "$VERIFY_OUT" | tail -20)
+
+请登录本机查看 self_heal.log 和 verify_report.py 输出"
+                curl -s -X POST "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"app_id\":\"$FEISHU_APP_ID\",\"app_secret\":\"$FEISHU_APP_SECRET\"}" \
+                    | $PYTHON -c "import sys,json; print(json.load(sys.stdin).get('tenant_access_token',''))" 2>/dev/null > /tmp/feishu_token
+                FT=$(cat /tmp/feishu_token)
+                if [ -n "$FT" ] && [ -n "$FEISHU_OPEN_ID" ]; then
+                    $PYTHON -c "
+import json
+card = {'schema':'2.0','header':{'title':{'tag':'plain_text','content':'⚠️ 数据自检告警 · $DATE'},'template':'red'},'body':{'elements':[{'tag':'div','text':{'tag':'lark_md','content':'''$ALERT_CONTENT'''}}]}}
+print(json.dumps(card))
+" 2>/dev/null > /tmp/feishu_card
+                    curl -s -X POST "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id" \
+                        -H "Authorization: Bearer $FT" \
+                        -H "Content-Type: application/json" \
+                        -d "{\"receive_id\":\"$FEISHU_OPEN_ID\",\"msg_type\":\"interactive\",\"content\":$(cat /tmp/feishu_card | $PYTHON -c "import sys,json; print(json.dumps(json.load(sys.stdin)))")}" \
+                        > /dev/null 2>&1
+                    echo "[$TS] 飞书告警已发送" >> "$LOG"
+                fi
+            fi
         fi
     else
         echo "[$TS] ❌ 报告文件未生成: $REPORT_FILE" >> "$LOG"

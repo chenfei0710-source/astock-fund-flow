@@ -62,6 +62,16 @@ jobs:
       - name: 生成复盘报告
         run: python gen_review.py
 
+      - name: 数据自检（HTML vs 数据库）
+        run: |
+          TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+          python verify_report.py "$TODAY"
+          if [ $? -ne 0 ]; then
+            echo "❌ 数据自检失败：HTML 数值与数据库不一致，不推送"
+            exit 1
+          fi
+          echo "✅ 数据自检通过"
+
       - name: 提交并推送数据
         run: |
           git config user.name "github-actions[bot]"
