@@ -243,51 +243,84 @@ def save_em_sector_flow(items, trade_date):
     print(f"[东方财富] 保存 {saved} 条")
     return saved
 
-# ── 东方财富大盘主力（curl_cffi → akshare fallback）─────────────────────────
+# ── 东方财富大盘主力（全市场综合资金流向）─────────────────────────
 def fetch_em_market_flow(trade_date):
     print(f"[大盘主力] 获取中...")
-    # 优先 curl_cffi（push2his 通常可访问）
-    api_url = (
-        "https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get"
-        "?lmt=5&klt=101&secid=1.000001"
-        "&fields1=f1,f2,f3,f7"
-        "&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
-    )
+
+    # curl_cffi 直连东方财富全市场综合资金流向 API（上证+深证合计）
+    # 用 akshare 同款参数，但走 curl_cffi 模拟 Chrome TLS 指纹绕过封锁
+    import time
+    api_url = "https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get"
+    params = {
+        'lmt': '0',
+        'klt': '101',
+        'secid': '1.000001',
+        'secid2': '0.399001',
+        'fields1': 'f1,f2,f3,f7',
+        'fields2': 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65',
+        'ut': 'b2884a393a59ad64002292a3e90d46a5',
+        '_': str(int(time.time() * 1000)),
+    }
     result = None
     try:
-        resp = curl_requests.get(api_url, headers={
+        resp = curl_requests.get(api_url, params=params, headers={
             'Referer': 'https://data.eastmoney.com/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36',
         }, impersonate='chrome120', timeout=20)
         if resp.status_code == 200 and resp.text.strip():
             result = resp.json()
     except Exception as e:
         print(f"[大盘主力] curl_cffi 失败: {e}")
 
-    # fallback：akshare
-    if not result or not result.get('data'):
-        try:
-            import akshare as ak
-            df = ak.stock_market_fund_flow()
-            # 取最近一行作为今日数据
-            row = df.iloc[-1]
-            zhuli = round(safe_float(row.get('主力净流入-净额', 0)) / 1e8, 2)
-            sanhu = round(safe_float(row.get('散户净流入-净额', 0)) / 1e8, 2)
-            chaoda = round(safe_float(row.get('超大单净流入-净额', 0)) / 1e8, 2)
-            dadan  = round(safe_float(row.get('大单净流入-净额', 0)) / 1e8, 2)
-            zhong  = round(safe_float(row.get('中单净流入-净额', 0)) / 1e8, 2)
-            print(f"[大盘主力] akshare: 主力={zhuli}亿 超大={chaoda}亿")
+    if result and result.get('data'):
+        klines = result['data'].get('klines', [])
+        target_kline = None
+        for kline in reversed(klines):
+            parts = kline.split(',')
+            if parts[0] == trade_date:
+                target_kline = kline
+                break
+        if target_kline is None and klines:
+            target_kline = klines[-1]
+        if target_kline:
+            parts = target_kline.split(',')
+            actual_date = parts[0]
+            # kline 格式: 日期,主力净流入,小单(散户),中单,大单,超大单,...
+            zhuli  = yi(parts[1]) if len(parts) > 1 else 0
+            sanhu  = yi(parts[2]) if len(parts) > 2 else 0
+            zhong  = yi(parts[3]) if len(parts) > 3 else 0
+            dadan  = yi(parts[4]) if len(parts) > 4 else 0
+            chaoda = yi(parts[5]) if len(parts) > 5 else 0
+            print(f"[大盘主力] {actual_date}: 主力={zhuli}亿 超大={chaoda}亿 大单={dadan}亿 散户={sanhu}亿")
             return {
-                'date': trade_date, 'zhuli_net': zhuli,
+                'date': actual_date, 'zhuli_net': zhuli,
                 'chaoda_net': chaoda, 'dadan_net': dadan,
                 'zhongdan_net': zhong, 'sanhu_net': sanhu,
                 'source': '东方财富'
             }
-        except Exception as e:
-            print(f"[大盘主力] akshare fallback 失败: {e}")
+
+    # fallback：akshare（标准 requests，可能被限流）
+    try:
+        import akshare as ak
+        df = ak.stock_market_fund_flow()
+        row = df.iloc[-1]
+        row_date = str(row.get('日期', '')).strip()
+        zhuli = round(safe_float(row.get('主力净流入-净额', 0)) / 1e8, 2)
+        chaoda = round(safe_float(row.get('超大单净流入-净额', 0)) / 1e8, 2)
+        dadan  = round(safe_float(row.get('大单净流入-净额', 0)) / 1e8, 2)
+        zhong  = round(safe_float(row.get('中单净流入-净额', 0)) / 1e8, 2)
+        sanhu  = round(safe_float(row.get('小单净流入-净额', 0)) / 1e8, 2)
+        print(f"[大盘主力] akshare: 主力={zhuli}亿 超大={chaoda}亿 大单={dadan}亿 散户={sanhu}亿")
+        return {
+            'date': row_date or trade_date, 'zhuli_net': zhuli,
+            'chaoda_net': chaoda, 'dadan_net': dadan,
+            'zhongdan_net': zhong, 'sanhu_net': sanhu,
+            'source': '东方财富'
+        }
+    except Exception as e:
+        print(f"[大盘主力] akshare 失败: {e}")
 
     # Plan C: 用 sector_flow_ths 板块净流入合计值估算大盘主力
-    # 如果 push2his + akshare 都失败但 THS 板块数据已有，用板块合计估算
     try:
         conn = sqlite3.connect(DB_PATH)
         rows = conn.execute("SELECT net FROM sector_flow_ths WHERE date=?", (trade_date,)).fetchall()
@@ -303,35 +336,6 @@ def fetch_em_market_flow(trade_date):
             }
     except Exception as e:
         print(f"[大盘主力] Plan C 失败: {e}")
-    return None
-
-    if not result or not result.get('data'):
-        print(f"[大盘主力] 无数据")
-        return None
-    klines = result['data'].get('klines', [])
-    target_kline = None
-    for kline in reversed(klines):
-        parts = kline.split(',')
-        if parts[0] == trade_date:
-            target_kline = kline
-            break
-    if target_kline is None and klines:
-        target_kline = klines[-1]
-    if target_kline:
-        parts = target_kline.split(',')
-        actual_date = parts[0]
-        zhuli  = yi(parts[1]) if len(parts) > 1 else 0
-        sanhu  = yi(parts[2]) if len(parts) > 2 else 0
-        zhong  = yi(parts[3]) if len(parts) > 3 else 0
-        dadan  = yi(parts[4]) if len(parts) > 4 else 0
-        chaoda = yi(parts[5]) if len(parts) > 5 else 0
-        print(f"[大盘主力] {actual_date}: 主力={zhuli}亿 超大={chaoda}亿 大单={dadan}亿 散户={sanhu}亿")
-        return {
-            'date': actual_date, 'zhuli_net': zhuli,
-            'chaoda_net': chaoda, 'dadan_net': dadan,
-            'zhongdan_net': zhong, 'sanhu_net': sanhu,
-            'source': '东方财富'
-        }
     return None
 
 def save_market_flow(data):

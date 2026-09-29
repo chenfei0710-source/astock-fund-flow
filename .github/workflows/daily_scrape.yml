@@ -54,6 +54,30 @@ jobs:
               print("⚠️  指数数据为空（Step 7可能失败，不影响主流程）")
           if ms_count == 0:
               print("⚠️  涨停统计数据为空（Step 8可能失败，不影响主流程）")
+
+          # 数据质量检查：stock_reco 的 name 不应等于 code
+          if reco_count > 0:
+              conn2 = sqlite3.connect('fund_flow.db')
+              bad_names = conn2.execute(
+                  "SELECT COUNT(*) FROM stock_reco WHERE date=? AND stock_name = stock_code",
+                  (today,)
+              ).fetchone()[0]
+              conn2.close()
+              if bad_names == reco_count:
+                  print(f"❌ 所有 {reco_count} 只个股 name=code（akshare/yfinance 被限流），不覆盖本地数据")
+                  sys.exit(1)
+              elif bad_names > 0:
+                  print(f"⚠️  {bad_names}/{reco_count} 只个股 name=code（部分缺失）")
+
+          # 数据质量检查：market_flow 的 chaoda/dadan 不应全为0
+          conn3 = sqlite3.connect('fund_flow.db')
+          mf = conn3.execute(
+              "SELECT chaoda_net, dadan_net, sanhu_net FROM market_flow WHERE date=?",
+              (today,)
+          ).fetchone()
+          conn3.close()
+          if mf and mf[0] == 0 and mf[1] == 0 and mf[2] == 0:
+              print("⚠️  大盘资金 超大单/大单/散户 全为0（东方财富 API 失败，仅 THS 估算）")
           EOF
 
       - name: 导出 JSON 数据
