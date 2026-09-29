@@ -84,8 +84,9 @@ chaoda = mk.get('chaoda', 0)
 dadan = mk.get('dadan', 0)
 zhongdan = mk.get('zhongdan', 0)
 sanhu = mk.get('sanhu', 0)
+mk_source = mk.get('source', '')
 
-# 涨停统计
+# 涨停统计（提前定义，供后续叙事使用）
 zt_count = ms.get('zt_count', 0)
 dt_count = ms.get('dt_count', 0)
 zb_count = ms.get('zb_count', 0)
@@ -93,6 +94,81 @@ zhaban_rate = ms.get('zhaban_rate', 0)
 jinji_rate = ms.get('jinji_rate', 0)
 max_lb = ms.get('max_lb', 0)
 max_lb_stock = ms.get('max_lb_stock', '--')
+
+# 量能：两市总成交额（提前定义，供后续叙事使用）
+total_amount = ms.get('total_amount', 0)
+total_amount_str = f'{total_amount}亿' if total_amount else '--'
+
+# 判断是否为估算模式（EM 数据源失败时的 Plan C 估算）
+is_estimated = '估算' in mk_source or (chaoda == 0 and dadan == 0 and sanhu == 0 and zhuli != 0)
+
+# 主力流向文字
+flow_dir = '净流入' if zhuli >= 0 else '净流出'
+flow_dir_short = '流入' if zhuli >= 0 else '流出'
+
+# 量能总结叙事（根据数据完整性生成不同文本）
+if is_estimated:
+    volume_summary = (f'主力合计{flow_dir}{abs(zhuli):.2f}亿（来源：{mk_source}，'
+                      f'超大单/大单/散户拆分数据缺失）——'
+                      f'<strong>主力资金方向明确，但细分结构暂缺</strong>，待 CI 补抓后更新。')
+else:
+    if zhuli < 0:
+        volume_summary = (f'主力合计净流出{abs(zhuli):.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），'
+                          f'散户净流入+{sanhu:.1f}亿，中单{zhongdan:.2f}亿——'
+                          f'<strong>机构/主力开始兑现离场，散户接盘</strong>，这是高位分歧的典型资金结构。')
+    else:
+        volume_summary = (f'主力合计净流入+{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），'
+                          f'散户净流出{abs(sanhu):.1f}亿，中单{zhongdan:.2f}亿——'
+                          f'<strong>机构/主力主导进攻</strong>，散户减仓，资金结构健康。')
+
+# 量能关键信号叙事
+if is_estimated:
+    volume_key_signal = (f'两市{total_amount_str}。主力{flow_dir}{abs(zhuli):.2f}亿'
+                         f'（来源：{mk_source}，细分拆分数据缺失）。'
+                         f'炸板率{zhaban_rate}%，情绪温度进入分歧期。')
+elif zhuli < 0:
+    volume_key_signal = (f'两市{total_amount_str}。主力净流出{abs(zhuli):.2f}亿'
+                         f'（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿——'
+                         f'<strong>机构出货、散户接盘</strong>的典型高位分歧结构。'
+                         f'炸板率{zhaban_rate}%，情绪温度进入分歧期。')
+else:
+    volume_key_signal = (f'两市{total_amount_str}。主力净流入+{zhuli:.2f}亿'
+                         f'（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流出{abs(sanhu):.1f}亿——'
+                         f'<strong>机构主导、散户离场</strong>，资金面积极。'
+                         f'炸板率{zhaban_rate}%。')
+
+# 情绪温度叙事
+if is_estimated:
+    emotion_temp = (f'涨停{zt_count}家（全部非ST）、跌停{dt_count}家、炸板率{zhaban_rate}%、'
+                    f'晋级率{jinji_rate}%、连板最高{max_lb}板（{max_lb_stock}）。'
+                    f'主力{flow_dir}{abs(zhuli):.2f}亿（估算值，细分缺失）。')
+elif zhuli < 0:
+    emotion_temp = (f'涨停{zt_count}家（全部非ST）、跌停{dt_count}家、炸板率{zhaban_rate}%、'
+                    f'晋级率{jinji_rate}%、连板最高{max_lb}板（{max_lb_stock}）。'
+                    f'主力净流出{abs(zhuli):.2f}亿，散户净流入{sanhu:.1f}亿——'
+                    f'<strong>机构与散户完全反向</strong>，情绪温度≈55/100，赚钱效应开始收敛。')
+else:
+    emotion_temp = (f'涨停{zt_count}家（全部非ST）、跌停{dt_count}家、炸板率{zhaban_rate}%、'
+                    f'晋级率{jinji_rate}%、连板最高{max_lb}板（{max_lb_stock}）。'
+                    f'主力净流入{zhuli:.2f}亿——<strong>机构主导</strong>，赚钱效应延续。')
+
+# 样本二叙事（机构兑现信号 / 资金面信号）
+flow_source_tag = f'（{mk_source}）' if is_estimated else ''
+flow_signal_text = '机构兑现信号，节前防御优先' if (zhuli < 0 and not is_estimated) else '资金面支撑，关注持续性'
+flow_color_tag = 'up' if zhuli < 0 else 'text2'
+if is_estimated:
+    sample2_narrative = (f'主力{flow_dir}{abs(zhuli):.2f}亿（{mk_source}，细分缺失）——'
+                         f'<strong>资金方向明确但细分暂缺，待 CI 补抓</strong>。')
+elif zhuli < 0:
+    sample2_narrative = (f'本轮修复以来主力首次单日净流出{abs(zhuli):.2f}亿，'
+                         f'超大单{chaoda:.2f}亿+大单{dadan:.2f}亿——机构在高位明确出货，'
+                         f'散户+{sanhu:.1f}亿接盘。'
+                         f'<strong>节前窗口+机构兑现=减仓信号</strong>，仓位收缩优先。')
+else:
+    sample2_narrative = (f'主力净流入{zhuli:.2f}亿，超大单{chaoda:.2f}亿+大单{dadan:.2f}亿——'
+                         f'机构主导进攻，散户净流出{abs(sanhu):.1f}亿。'
+                         f'<strong>资金面积极，关注主线延续</strong>。')
+
 
 # nav-tag: 主力流向标签
 if zhuli > 0:
@@ -122,8 +198,10 @@ def _sketch_narrative():
         tone = '分化调整'
         parts.append(f'今日市场分化加剧，上证 {sh_chg:+.2f}%、深证 {sz_chg:+.2f}%、创业板 {cy_chg:+.2f}%，指数表现不一，板块轮动加速')
     # 资金结构
-    if zhuli < 0:
-        parts.append(f'主力净流出 {zhuli:.0f}亿（超大单 {chaoda:.0f}亿、大单 {dadan:.0f}亿），散户净流入 +{sanhu:.0f}亿——<strong>机构出货、散户接盘</strong>')
+    if is_estimated:
+        parts.append(f'主力{flow_dir} {abs(zhuli):.0f}亿（{mk_source}，细分拆分数据缺失）')
+    elif zhuli < 0:
+        parts.append(f'主力净流出 {abs(zhuli):.0f}亿（超大单 {chaoda:.0f}亿、大单 {dadan:.0f}亿），散户净流入 +{sanhu:.0f}亿——<strong>机构出货、散户接盘</strong>')
     else:
         parts.append(f'主力净流入 +{zhuli:.0f}亿，散户净流出 {abs(sanhu):.0f}亿——<strong>机构主导</strong>')
     # 情绪
@@ -147,10 +225,17 @@ def _emotion_narrative():
     else:
         phase = '修复扩散段'
         tone = '情绪修复中'
+    flow_desc = f'主力{flow_dir} {abs(zhuli):.0f}亿'
+    if is_estimated:
+        flow_extra = f'（{mk_source}）'
+    elif zhuli < 0:
+        flow_extra = '，机构单日兑现'
+    else:
+        flow_extra = ''
     return (f'<strong>阶段判断：{phase}（{tone}）</strong><br>'
             f'连板高度 {max_lb} 板（{max_lb_stock}），涨停 {zt_count} 家、跌停 {dt_count} 家，'
             f'炸板率 {zhaban_rate}%、晋级率 {jinji_rate}%。'
-            f'主力净流出 {abs(zhuli):.0f}亿{"，机构单日兑现" if zhuli < 0 else ""}——<strong>保住利润优先于进攻</strong>。')
+            f'{flow_desc}{flow_extra}——<strong>{"保住利润优先于进攻" if zhuli < 0 else "资金面支撑进攻"}</strong>。')
 
 emotion_narrative = _emotion_narrative()
 
@@ -326,10 +411,6 @@ top3_net_sum = sum(s['zhuli'] for s in em_top5[:3]) if len(em_top5) >= 3 else 0
 nav_tag_short = '主力流入' if zhuli > 0 else '主力流出'
 down_count = total_reco - up_count if total_reco else 0
 
-# 量能：两市总成交额（亿元），从 market_stats.total_amount 读真实值
-total_amount = ms.get('total_amount', 0)
-total_amount_str = f'{total_amount}亿' if total_amount else '--'
-
 # nav-indices HTML 预构建
 def nav_idx_html(label, close, chg):
     if close == '--' or chg == '--':
@@ -433,7 +514,7 @@ html = f'''<!DOCTYPE html>
       {sketch_narrative}
     </div>
     <div class="hbox red">
-      <strong style="color:var(--up)">量能关键信号：</strong>两市{total_amount_str}。主力净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿——<strong>机构出货、散户接盘</strong>的典型高位分歧结构。炸板率{zhaban_rate}%，情绪温度进入分歧期。
+      <strong style="color:var(--up)">量能关键信号：</strong>{volume_key_signal}
     </div>
     <div style="margin-top:10px" class="hbox blue">
       <strong>市场核心主线切换：</strong><span class="b b-r">{main_sector_name}+AI应用（计算机/广告营销）</span>接棒<span class="b b-grey">半导体</span>成为当日最强方向——{main_sector_name}板块主力净流入+{main_sector_net:.1f}亿，数字芯片设计+{sub_sector_net:.1f}亿，计算机+{em3_net:.1f}亿；<strong>三板块合计净流入{top3_net_sum:.1f}亿，占全市场主力净流入TOP3</strong>，新主线聚焦度集中。
@@ -467,7 +548,7 @@ html = f'''<!DOCTYPE html>
       </table>
     </div>
     <div class="hbox red" style="margin-top:12px;font-size:.78rem">
-      <strong>量能总结：</strong>主力合计净流出{zhuli:.2f}亿（超大单{chaoda:.2f}亿、大单{dadan:.2f}亿），散户净流入+{sanhu:.1f}亿，中单{zhongdan:.2f}亿——<strong>机构/主力开始兑现离场，散户接盘</strong>，这是高位分歧的典型资金结构。
+      <strong>量能总结：</strong>{volume_summary}
     </div>
   </div>
 
@@ -491,7 +572,7 @@ html = f'''<!DOCTYPE html>
       {emotion_narrative}
     </div>
     <div class="hbox" style="font-size:.78rem">
-      <strong>情绪温度读表：</strong>涨停{zt_count}家（全部非ST）、跌停{dt_count}家、炸板率{zhaban_rate}%、晋级率{jinji_rate}%、连板最高{max_lb}板（{max_lb_stock}）。主力净流出{zhuli:.2f}亿，散户净流入{sanhu:.1f}亿——<strong>机构与散户完全反向</strong>，情绪温度≈55/100，赚钱效应开始收敛。
+      <strong>情绪温度读表：</strong>{emotion_temp}
     </div>
   </div>
 
@@ -508,7 +589,7 @@ html = f'''<!DOCTYPE html>
           <tr><td class="l">{main_sector_name}板块主力净流入+{main_sector_net:.1f}亿，{dragon1_name}涨停</td><td class="wrap">{main_sector_name}/AI应用</td><td class="wrap up">新主线确立，观察持续性</td></tr>
           <tr><td class="l">{dragon2_name}+{dragon2_chg}涨停（医疗器械TOP1）</td><td class="wrap">医疗器械</td><td class="wrap up">超跌反弹方向，关注分化</td></tr>
           <tr><td class="l">{max_lb_stock}{max_lb}板（全市场最高连板）</td><td class="wrap">连板高度</td><td class="wrap gold-t">高度打开=情绪未崩，但广度收敛</td></tr>
-          <tr><td class="l">主力净流出{zhuli:.0f}亿（本轮修复首次）</td><td class="wrap" style="color:var(--up)">全市场</td><td class="wrap up"><strong>机构兑现信号，节前防御优先</strong></td></tr>
+          <tr><td class="l">主力{flow_dir}{abs(zhuli):.0f}亿{flow_source_tag}</td><td class="wrap" style="color:var(--{flow_color_tag})">全市场</td><td class="wrap {'up' if zhuli < 0 else ''}"><strong>{flow_signal_text}</strong></td></tr>
           <tr><td class="l">节前效应（9/25中秋，仅4个交易日）</td><td class="wrap" style="color:var(--up)">全市场</td><td class="wrap up"><strong>历史规律：节前缩量+高位兑现</strong></td></tr>
         </tbody>
       </table>
@@ -546,8 +627,8 @@ html = f'''<!DOCTYPE html>
         <p style="color:var(--text2)">{main_sector_name}板块主力+{main_sector_net:.1f}亿、THS净流入{ths_top1_net:.1f}亿（全市场TOP1），{dragon1_name}涨停领涨——半导体主线兑现后，资金切换至AI应用/传媒方向，<strong>新主线正在确立</strong>。跟进龙头{dragon1_name}+跟涨股{reco0_name}。</p>
       </div>
       <div class="trio-card trio-r">
-        <h4>样本二 · 机构兑现信号（主力{zhuli:.0f}亿）</h4>
-        <p style="color:var(--text2)">本轮修复以来主力首次单日净流出{zhuli:.2f}亿，超大单{chaoda:.2f}亿+大单{dadan:.2f}亿——机构在高位明确出货，散户+{sanhu:.1f}亿接盘。<strong>节前窗口+机构兑现=减仓信号</strong>，仓位收缩优先。</p>
+        <h4>样本二 · {'机构兑现信号' if zhuli < 0 and not is_estimated else '资金面信号'}（主力{flow_dir}{abs(zhuli):.0f}亿）</h4>
+        <p style="color:var(--text2)">{sample2_narrative}</p>
       </div>
       <div class="trio-card trio-y">
         <h4>样本三 · 超跌反弹（{dragon2_name}+{dragon2_chg}）</h4>
@@ -582,10 +663,11 @@ html = f'''<!DOCTYPE html>
     <div class="card" style="border-color:rgba(224,49,49,.25)">
       <div class="card-title"><span class="dot" style="background:var(--up)"></span>空头隐患（风险信号）</div>
       <ul class="cklist">
-        <li style="color:var(--up)"><strong>主力净流出{zhuli:.2f}亿（本轮修复首次机构兑现）</strong>，高位分歧信号明确</li>
+        {f'<li style="color:var(--up)"><strong>主力净流出{abs(zhuli):.2f}亿（本轮修复首次机构兑现）</strong>，高位分歧信号明确</li>' if zhuli < 0 and not is_estimated else ''}
+        {f'<li style="color:var(--up)"><strong>主力资金为估算值（{mk_source}），细分缺失</strong>，需待 CI 补抓后确认方向</li>' if is_estimated else ''}
         <li>炸板率{zhaban_rate}%，分歧大幅加剧</li>
         <li>涨停{zt_count}家、跌停{dt_count}家，广度收敛</li>
-        <li>散户+{sanhu:.1f}亿接盘：机构出货散户接，典型高位反转结构</li>
+        {f'<li>散户+{sanhu:.1f}亿接盘：机构出货散户接，典型高位反转结构</li>' if zhuli < 0 and sanhu > 0 and not is_estimated else ''}
         <li>北证50 {bj_chg:+.2f}%，小盘尾部风险升温</li>
         <li style="color:var(--up)"><strong>节前窗口已开启（9/25中秋，仅4个交易日）</strong>，历史节前缩量+高位兑现</li>
       </ul>
@@ -815,10 +897,10 @@ html = f'''<!DOCTYPE html>
   </div>
 
   <div class="card">
-    <div class="card-title"><span class="dot" style="background:var(--up)"></span>高位分歧品种（机构出货方向）</div>
-    <div class="mine"><span class="mine-ico">💣</span><div><div class="mine-nm">北证50（-1.08%）</div><div class="mine-desc">北证50领跌全场，小盘尾部风险升温，<strong style="color:var(--up)">回避北证方向所有标的</strong>。</div></div></div>
+    <div class="card-title"><span class="dot" style="background:var(--up)"></span>{'高位分歧品种（机构出货方向）' if zhuli < 0 else '风险防范品种'}</div>
+    <div class="mine"><span class="mine-ico">💣</span><div><div class="mine-nm">北证50（{bj_chg:+.2f}%）</div><div class="mine-desc">北证50{'领跌全场' if bj_chg < 0 else '走势偏弱'}，小盘尾部风险升温，<strong style="color:var(--up)">回避北证方向所有标的</strong>。</div></div></div>
     <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">炸板率{zhaban_rate}%品种</div><div class="mine-desc">炸板率{zhaban_rate}%，高位分歧加剧——所有涨停后炸板品种次日均有天地板风险，坚决回避。</div></div></div>
-    <div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">散户接盘品种</div><div class="mine-desc">主力{zhuli:.0f}亿+散户+{sanhu:.0f}亿=机构出货散户接的典型高位反转结构，<strong>所有散户集中涌入的品种均为次日兑现预警</strong>。</div></div></div>
+    {f'<div class="mine"><span class="mine-ico">⚠️</span><div><div class="mine-nm">散户接盘品种</div><div class="mine-desc">主力{zhuli:.0f}亿+散户+{sanhu:.0f}亿=机构出货散户接的典型高位反转结构，<strong>所有散户集中涌入的品种均为次日兑现预警</strong>。</div></div></div>' if zhuli < 0 and sanhu > 0 and not is_estimated else ''}
   </div>
 
   <div class="card">

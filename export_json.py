@@ -29,9 +29,9 @@ def export():
     for d in dates:
         # 大盘主力
         mf = conn.execute(
-            "SELECT zhuli_net,chaoda_net,dadan_net,zhongdan_net,sanhu_net FROM market_flow WHERE date=?", (d,)
+            "SELECT zhuli_net,chaoda_net,dadan_net,zhongdan_net,sanhu_net,source FROM market_flow WHERE date=?", (d,)
         ).fetchone()
-        market = dict(zip(['zhuli','chaoda','dadan','zhongdan','sanhu'], mf)) if mf else None
+        market = dict(zip(['zhuli','chaoda','dadan','zhongdan','sanhu','source'], mf)) if mf else None
 
         # 指数行情
         idx_rows = conn.execute(
