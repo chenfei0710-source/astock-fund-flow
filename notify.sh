@@ -119,6 +119,17 @@ if [ "$THS" != "0" ] && [ -n "$THS" ] && [ "$REPORT_OK" = "1" ]; then
     IFS='|' read -r ZT DT ZB_RATE MAX_LB MAX_LB_STOCK <<< "$ZT_STATS"
     IFS='|' read -r ZHULI CHAODA DADAN SANHU <<< "$MK_STATS"
 
+    # 跑数据自检
+    VERIFY_OUT=$($PYTHON "$REPO_DIR/verify_report.py" "$DATE" 2>&1)
+    VERIFY_EXIT=$?
+    if [ $VERIFY_EXIT -eq 0 ]; then
+        VERIFY_STATUS="✅ 数据自检通过"
+        VERIFY_DETAIL=$(echo "$VERIFY_OUT" | grep -E "⚠️" | head -5)
+    else
+        VERIFY_STATUS="❌ 数据自检失败"
+        VERIFY_DETAIL=$(echo "$VERIFY_OUT" | grep -E "❌|不一致" | head -10)
+    fi
+
     # 构建通知内容
     MSG="📊 $DATE 数据已更新\n"
     MSG+="主力: ${ZHULI}亿 | 涨停: ${ZT} | 炸板率: ${ZB_RATE}%\n"
@@ -138,6 +149,14 @@ if [ "$THS" != "0" ] && [ -n "$THS" ] && [ "$REPORT_OK" = "1" ]; then
     if [ "$IDX_STATS" != "无" ]; then
         MSG+="指数: ${IDX_STATS}\n"
         FS_CONTENT+="**指数**: ${IDX_STATS}\n"
+    fi
+
+    # 附带自检结果
+    MSG+="\n${VERIFY_STATUS}\n"
+    FS_CONTENT+="\n---\n**${VERIFY_STATUS}**\n"
+    if [ -n "$VERIFY_DETAIL" ]; then
+        MSG+="${VERIFY_DETAIL}\n"
+        FS_CONTENT+="${VERIFY_DETAIL}\n"
     fi
 
     MSG+="\n点击查看报告 → $REPORT_URL"
