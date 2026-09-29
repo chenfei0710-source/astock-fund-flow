@@ -728,6 +728,136 @@ def parse_ths_stock_map(raw_rows):
             continue
     return result
 
+async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_threshold):
+    """Plan C: EM clist 选 TOP30 候选 + push2his 拉历史 K 线算完整技术面。
+    返回 (reco_list, price_map) 或 ([], {}) 失败时。"""
+    if not CURL_AVAILABLE:
+        return [], {}
+    print(f"[全市场扫描] Plan C: EM clist 选 TOP30 + push2his 拉历史 K 线")
+    try:
+        r = curl_requests.get('https://push2.eastmoney.com/api/qt/clist/get',
+            params={
+                'pn': 1, 'pz': 5000, 'po': 1, 'np': 1,
+                'fltt': 2, 'invt': 2, 'fid': 'f3',
+                'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',
+                'fields': 'f2,f3,f5,f6,f8,f10,f12,f14,f15,f16,f17,f18,f7',
+            },
+            impersonate='chrome', timeout=30)
+        d = r.json()
+        spot_list = d.get('data', {}).get('diff', [])
+        print(f"[Plan C] EM clist 返回 {len(spot_list)} 只")
+        spot_candidates = []
+        for item in spot_list:
+            code = str(item.get('f12', '')).zfill(6)
+            name = item.get('f14', '')
+            close = item.get('f2')
+            chg = item.get('f3')
+            vol_ratio = item.get('f10')  # f10=量比（f8 是换手率）
+            if not (code and close and chg is not None):
+                continue
+            try:
+                close = float(close); chg = float(chg)
+                if close <= 0 or not (1.0 <= chg <= 6.0):
+                    continue
+                zhuli = ths_stock_map.get(code, 0.0)
+                spot_candidates.append({
+                    'code': code, 'name': name,
+                    'price': round(close, 2), 'chg': round(chg, 2),
+                    'zhuli': zhuli,
+                    'vol_ratio': float(vol_ratio) if vol_ratio else 1.0,
+                    'vol_2x': 1.0 if (vol_ratio and float(vol_ratio) >= 2) else 0,
+                    'today_open': float(item.get('f17', close)),
+                    'prev_close': float(item.get('f18', close)),
+                    'today_high': float(item.get('f15', close)),
+                    'today_low': float(item.get('f16', close)),
+                    'amplitude': float(item.get('f7', 0)),
+                })
+            except (ValueError, TypeError):
+                continue
+        # 按 主力净流入 + 涨幅 排序，取 TOP30
+        spot_candidates.sort(key=lambda x: (x['zhuli'], x['chg']), reverse=True)
+        top30 = spot_candidates[:30]
+        print(f"[Plan C] 候选 TOP30，开始拉历史 K 线计算技术面")
+
+        kline_fetched = 0
+        scored = []
+        for s in top30:
+            code = s['code']
+            secid = f'1.{code}' if code.startswith('6') else f'0.{code}'
+            klines = []
+            for attempt in range(2):
+                try:
+                    kr = curl_requests.get('https://push2his.eastmoney.com/api/qt/stock/kline/get',
+                        params={
+                            'secid': secid,
+                            'fields1': 'f1,f2,f3',
+                            'fields2': 'f51,f52,f53,f54,f55,f56,f57',
+                            'klt': '101', 'fqt': '1',
+                            'beg': (date.today() - timedelta(days=120)).strftime('%Y%m%d'),  # 120 日历日 ≈ 80 交易日
+                            'end': date.today().strftime('%Y%m%d'),
+                        },
+                        impersonate='chrome', timeout=10)
+                    kd = kr.json()
+                    klines = kd.get('data', {}).get('klines', [])
+                    if klines:
+                        break
+                except Exception as e:
+                    if attempt == 1:
+                        print(f"  [Plan C] {code} K线失败: {str(e)[:50]}")
+                    await asyncio.sleep(0.3)
+            if not klines or len(klines) < 5:
+                continue
+            kline_fetched += 1
+            closes = [float(k.split(',')[2]) for k in klines]
+            opens = [float(k.split(',')[1]) for k in klines]
+            volumes = [float(k.split(',')[5]) for k in klines]
+            if len(closes) < 5:
+                continue
+            tech = compute_technicals(closes, volumes, opens, weights) if len(closes) >= 20 else None
+            if tech is None:
+                tech = {'ma5': closes[-1], 'ma10': closes[-1], 'ma20': closes[-1],
+                        'ma_align': 0, 'macd_signal': 'unknown', 'macd_above_zero': 0,
+                        'rsi': 50.0, 'vol_2x': s['vol_2x'],
+                        'yang_cross': 0, 'pullback_10d': 0,
+                        'score': 1, 'signal': '数据不足'}
+            if tech.get('macd_signal') == 'death':
+                continue
+            if tech.get('score', 0) < min_score_threshold:
+                continue
+            scored.append({**s, 'sector': '全市场精选', 'market_regime': market_regime, **tech})
+            if len(scored) >= 15:
+                break
+            await asyncio.sleep(0.2)
+        print(f"[Plan C] K线拉取 {kline_fetched}/30 只，评分后 {len(scored)} 只")
+        scored.sort(key=lambda x: (x.get('score', 0), x.get('zhuli', 0), x['chg']), reverse=True)
+        top15 = scored[:15]
+        # 兜底：评分后不足 15 只，补未拉 K 线的候选（用今日快照估算）
+        if len(top15) < 15:
+            have_codes = {s['code'] for s in top15}
+            for s in top30:
+                if s['code'] not in have_codes:
+                    today_open = s.get('today_open', s['price'])
+                    prev_close = s.get('prev_close', s['price'])
+                    yang_cross = 1 if (today_open < prev_close and s['price'] > prev_close) else 0
+                    s.update({
+                        'ma5': s['price'], 'ma10': s['price'], 'ma20': s['price'],
+                        'ma_align': 1 if s['price'] > prev_close else 0,
+                        'macd_signal': 'unknown', 'macd_above_zero': 0,
+                        'rsi': 50.0, 'yang_cross': yang_cross, 'pullback_10d': 0,
+                        'score': 1, 'signal': '快照估算',
+                    })
+                    top15.append(s)
+                    if len(top15) >= 15:
+                        break
+        snap_count = len(top15) - kline_fetched if len(top15) > kline_fetched else 0
+        print(f"[Plan C] 最终选出 {len(top15)} 只（含技术面评分 {kline_fetched} 只 + 快照估算 {snap_count} 只）")
+        if top15:
+            return [{'sector': '全市场精选', 'stocks': top15}], {s['code']: s['price'] for s in top15}
+    except Exception as e:
+        print(f"[Plan C] 失败: {e}")
+        import traceback; traceback.print_exc()
+    return [], {}
+
 async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
     """
     全市场扫描（沪深两市）：自适应权重 + 市场环境感知 + THS个股资金佐证
@@ -1004,136 +1134,9 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
 
     # ── Plan C: Plan B 仍不足时，用 EM clist 选 TOP30 候选，再单独拉 K 线算技术面 ──
     if len(kline_map) < 200 and CURL_AVAILABLE:
-        print(f"[全市场扫描] Plan C: EM clist 选 TOP30 + push2his 拉历史 K 线")
-        try:
-            r = curl_requests.get('https://push2.eastmoney.com/api/qt/clist/get',
-                params={
-                    'pn': 1, 'pz': 5000, 'po': 1, 'np': 1,
-                    'fltt': 2, 'invt': 2, 'fid': 'f3',
-                    'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',
-                    'fields': 'f2,f3,f5,f6,f8,f10,f12,f14,f15,f16,f17,f18,f7',
-                },
-                impersonate='chrome', timeout=30)
-            d = r.json()
-            spot_list = d.get('data', {}).get('diff', [])
-            print(f"[Plan C] EM clist 返回 {len(spot_list)} 只")
-            spot_candidates = []
-            for item in spot_list:
-                code = str(item.get('f12', '')).zfill(6)
-                name = item.get('f14', '')
-                close = item.get('f2')
-                chg = item.get('f3')
-                vol_ratio = item.get('f10')  # f10=量比（f8 是换手率）
-                if not (code and close and chg is not None):
-                    continue
-                try:
-                    close = float(close); chg = float(chg)
-                    if close <= 0 or not (1.0 <= chg <= 6.0):
-                        continue
-                    zhuli = ths_stock_map.get(code, 0.0)
-                    spot_candidates.append({
-                        'code': code, 'name': name,
-                        'price': round(close, 2), 'chg': round(chg, 2),
-                        'zhuli': zhuli,
-                        'vol_ratio': float(vol_ratio) if vol_ratio else 1.0,
-                        'vol_2x': 1.0 if (vol_ratio and float(vol_ratio) >= 2) else 0,
-                        'today_open': float(item.get('f17', close)),
-                        'prev_close': float(item.get('f18', close)),
-                        'today_high': float(item.get('f15', close)),
-                        'today_low': float(item.get('f16', close)),
-                        'amplitude': float(item.get('f7', 0)),
-                    })
-                except (ValueError, TypeError):
-                    continue
-            # 按 主力净流入 + 涨幅 排序，取 TOP30（多选 30 只保证拉完 K 线后还有 15 只）
-            spot_candidates.sort(key=lambda x: (x['zhuli'], x['chg']), reverse=True)
-            top30 = spot_candidates[:30]
-            print(f"[Plan C] 候选 TOP30，开始拉历史 K 线计算技术面")
-
-            # 为每只候选股拉历史 K 线（最近 60 天）
-            import time
-            kline_fetched = 0
-            scored = []
-            for s in top30:
-                code = s['code']
-                secid = f'1.{code}' if code.startswith('6') else f'0.{code}'
-                klines = []
-                # 重试 2 次
-                for attempt in range(2):
-                    try:
-                        kr = curl_requests.get('https://push2his.eastmoney.com/api/qt/stock/kline/get',
-                            params={
-                                'secid': secid,
-                                'fields1': 'f1,f2,f3',
-                                'fields2': 'f51,f52,f53,f54,f55,f56,f57',
-                                'klt': '101', 'fqt': '1',
-                                'beg': (date.today().replace(day=1) if date.today().month >= 4 else date.today().replace(year=date.today().year-1, month=10)).strftime('%Y%m%d'),
-                                'end': date.today().strftime('%Y%m%d'),
-                            },
-                            impersonate='chrome', timeout=10)
-                        kd = kr.json()
-                        klines = kd.get('data', {}).get('klines', [])
-                        if klines:
-                            break
-                    except Exception as e:
-                        if attempt == 1:
-                            print(f"  [Plan C] {code} K线失败: {str(e)[:50]}")
-                        await asyncio.sleep(0.3)
-                if not klines or len(klines) < 5:
-                    continue
-                kline_fetched += 1
-                # 解析 K 线: date,open,close,high,low,volume,amount
-                closes = [float(k.split(',')[2]) for k in klines]
-                opens = [float(k.split(',')[1]) for k in klines]
-                volumes = [float(k.split(',')[5]) for k in klines]
-                if len(closes) < 5:
-                    continue
-                # 计算技术面（用自适应权重）
-                tech = compute_technicals(closes, volumes, opens, weights) if len(closes) >= 20 else None
-                if tech is None:
-                    # K 线不够 20 天，给最低评分
-                    tech = {'ma5': closes[-1], 'ma10': closes[-1], 'ma20': closes[-1],
-                            'ma_align': 0, 'macd_signal': 'unknown', 'macd_above_zero': 0,
-                            'rsi': 50.0, 'vol_2x': s['vol_2x'],
-                            'yang_cross': 0, 'pullback_10d': 0,
-                            'score': 1, 'signal': '数据不足'}
-                if tech.get('macd_signal') == 'death':
-                    continue
-                if tech.get('score', 0) < min_score_threshold:
-                    continue
-                scored.append({**s, 'sector': '全市场精选', 'market_regime': market_regime, **tech})
-                if len(scored) >= 15:
-                    break
-                await asyncio.sleep(0.2)  # 避免限流
-            print(f"[Plan C] K线拉取 {kline_fetched}/30 只，评分后 {len(scored)} 只")
-            # 排序：评分 + 主力 + 涨幅
-            scored.sort(key=lambda x: (x.get('score', 0), x.get('zhuli', 0), x['chg']), reverse=True)
-            top15 = scored[:15]
-            # 兜底：评分后不足 15 只，补未拉 K 线的候选
-            if len(top15) < 15:
-                have_codes = {s['code'] for s in top15}
-                for s in top30:
-                    if s['code'] not in have_codes:
-                        # 用今日快照计算简化技术面
-                        today_open = s.get('today_open', s['price'])
-                        prev_close = s.get('prev_close', s['price'])
-                        yang_cross = 1 if (today_open < prev_close and s['price'] > prev_close) else 0
-                        s.update({
-                            'ma5': s['price'], 'ma10': s['price'], 'ma20': s['price'],
-                            'ma_align': 1 if s['price'] > prev_close else 0,
-                            'macd_signal': 'unknown', 'macd_above_zero': 0,
-                            'rsi': 50.0, 'yang_cross': yang_cross, 'pullback_10d': 0,
-                            'score': 1, 'signal': '快照估算',
-                        })
-                        top15.append(s)
-                        if len(top15) >= 15:
-                            break
-            print(f"[Plan C] 最终选出 {len(top15)} 只（含技术面评分 {kline_fetched} 只 + 快照估算 {len(top15)-kline_fetched if len(top15)>kline_fetched else 0} 只）")
-            if top15:
-                return [{'sector': '全市场精选', 'stocks': top15}], {s['code']: s['price'] for s in top15}
-        except Exception as e:
-            print(f"[Plan C] 失败: {e}")
-            import traceback; traceback.print_exc()
+        reco_c, price_c = await _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_threshold)
+        if reco_c and reco_c[0].get('stocks'):
+            return reco_c, price_c
     if not kline_map:
         return [{'sector': '全市场精选', 'stocks': []}], {}
 
@@ -1185,6 +1188,13 @@ async def fetch_all_stocks_and_screen(trade_date, ths_stock_map=None):
     print(f"[全市场扫描] 评分完成，市场模式={market_regime}，门槛={min_score_threshold}/5，推荐{len(top15)}只（其中{ths_hit}只有THS资金佐证）：")
     for i, s in enumerate(top15, 1):
         print(f"  {i:2d}. {s['name']}({s['code']}) 评分:{s['score']}/5 涨:{s['chg']:+.2f}% {s['signal']}")
+
+    # ── 评分后兜底：0 只推荐时启用 Plan C（EM clist + push2his K线）──
+    if not top15 and CURL_AVAILABLE:
+        print(f"[全市场扫描] 评分后 0 只推荐，启用 Plan C 兜底")
+        reco_c, price_c = await _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_threshold)
+        if reco_c and reco_c[0].get('stocks'):
+            return reco_c, price_c
 
     return [{'sector': '全市场精选', 'stocks': top15}], price_map_from_spot
 
