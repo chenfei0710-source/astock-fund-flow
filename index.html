@@ -434,29 +434,37 @@ function renderStockReco(stocks) {
     </div>`;
 
   const rows = stocks.map((s, i) => {
+    const volRatio = s.vol_ratio != null ? s.vol_ratio : 0;
+    const rsiVal = s.rsi != null ? s.rsi : 0;
     const volStyle = s.vol_2x
       ? 'color:#cf222e;font-weight:700'
-      : s.vol_ratio >= 1.5 ? 'color:#1a7f37' : 'color:var(--muted)';
-    const volText = `${s.vol_ratio.toFixed(1)}x${s.vol_2x ? ' 🔥' : ''}`;
+      : volRatio >= 1.5 ? 'color:#1a7f37' : 'color:var(--muted)';
+    const volText = `${volRatio.toFixed(1)}x${s.vol_2x ? ' 🔥' : ''}`;
     const yangText = s.yang_cross >= 2
       ? `<span style="color:#cf222e;font-weight:700">穿${s.yang_cross}线</span>`
       : s.yang_cross === 1 ? `<span style="color:#1a7f37">穿1线</span>`
       : `<span style="color:var(--muted)">—</span>`;
     const scoreColor = s.score >= 4 ? '#cf222e' : s.score >= 2 ? '#9a6700' : '#656d76';
+    const rsiText = s.rsi == null
+      ? `<span style="color:var(--muted);font-size:11px">N/A</span>`
+      : rsiVal.toFixed(1);
+    const macdText = s.macd_signal === 'unknown'
+      ? `<span style="color:var(--muted);font-size:11px">N/A</span>`
+      : macdBadge(s.macd_signal);
     return `<tr>
       <td style="color:var(--muted);font-size:12px;text-align:center">${i+1}</td>
-      <td style="font-weight:700">${s.name}<br><span style="color:var(--muted);font-size:11px;font-weight:400">${s.code}</span></td>
-      <td>${s.price.toFixed(2)}</td>
+      <td style="font-weight:700">${s.name || s.code}<br><span style="color:var(--muted);font-size:11px;font-weight:400">${s.code}</span></td>
+      <td>${(s.price || 0).toFixed(2)}</td>
       <td>${fmtChg(s.chg)}</td>
       <td>${fmt(s.zhuli)}</td>
       <td>${maBadge(s.ma_align)}</td>
-      <td>${macdBadge(s.macd_signal)}</td>
+      <td>${macdText}</td>
       <td>${s.macd_above_zero ? '<span style="color:#1a7f37;font-weight:600">上方✓</span>' : '<span style="color:var(--muted)">下方</span>'}</td>
-      <td style="color:${rsiColor(s.rsi)};font-weight:600">${s.rsi.toFixed(1)}</td>
+      <td style="color:${rsiColor(rsiVal)};font-weight:600">${rsiText}</td>
       <td style="${volStyle}">${volText}</td>
       <td>${yangText}</td>
       <td>${s.pullback_10d ? '<span style="color:#1a7f37;font-weight:600">回调↑</span>' : '<span style="color:var(--muted)">—</span>'}</td>
-      <td style="font-weight:700;color:${scoreColor}">${s.score}/5</td>
+      <td style="font-weight:700;color:${scoreColor}">${s.score || 0}/5</td>
       <td>${signalBadge(s.signal)}</td>
     </tr>`;
   }).join('');
