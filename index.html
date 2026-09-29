@@ -415,6 +415,10 @@ function renderStockReco(stocks) {
       '值得关注': 'background:#9a6700;color:#fff',
       '观望':     'background:#656d76;color:#fff'
     };
+    // Plan C 兜底：无技术面评分时显示特殊 badge，不要误导成"观望"
+    if (s && s.includes('无技术面')) {
+      return `<span style="font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;background:#f6f8fa;color:#656d76;border:1px solid #d0d7de">无评分</span>`;
+    }
     return `<span style="font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;${map[s]||map['观望']}">${s}</span>`;
   };
   const macdBadge = s => {
@@ -426,7 +430,17 @@ function renderStockReco(stocks) {
   const rsiColor = v => v > 70 ? '#cf222e' : v < 35 ? '#1a7f37' : '#1f2328';
 
   // 筛选说明
+  // Plan C 兜底检测：所有股票 score=0 且 signal 含"无技术面"时显示降级提示
+  const isPlanC = stocks.length > 0 && stocks.every(s => s.score === 0 && (s.signal || '').includes('无技术面'));
+  const planCWarning = isPlanC
+    ? `<div style="background:#fff8c5;border:1px solid #d4a72c;border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#57644a;line-height:1.6">
+         ⚠️ <b>今日为 Plan C 兜底模式</b>：yfinance 限流导致无法获取历史 K 线，
+         已切换到 EM 全市场快照按 <b>涨幅+主力净流入</b> 排序选股，
+         <b>无技术面评分</b>（均线/MACD/RSI 等字段为 N/A）。建议结合其他指标人工判断。
+       </div>`
+    : '';
   const summary = `
+    ${planCWarning}
     <div style="background:#f6f8fa;border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--muted);line-height:1.8">
       <b style="color:var(--text)">筛选逻辑</b>：全市场约4800只A股 → 主力净流入≥0.3亿 + 涨幅0.5%-7% + 非ST →
       取主力净流入 TOP120 → 计算均线多头/MACD/RSI/放量/阳线穿均线/10天调整反弹 6项技术指标综合评分 → 输出 TOP20<br>
@@ -445,6 +459,9 @@ function renderStockReco(stocks) {
       : s.yang_cross === 1 ? `<span style="color:#1a7f37">穿1线</span>`
       : `<span style="color:var(--muted)">—</span>`;
     const scoreColor = s.score >= 4 ? '#cf222e' : s.score >= 2 ? '#9a6700' : '#656d76';
+    const scoreText = s.score === 0 && (s.signal || '').includes('无技术面')
+      ? `<span style="color:var(--muted);font-size:11px">N/A</span>`
+      : `${s.score || 0}/5`;
     const rsiText = s.rsi == null
       ? `<span style="color:var(--muted);font-size:11px">N/A</span>`
       : rsiVal.toFixed(1);
@@ -464,7 +481,7 @@ function renderStockReco(stocks) {
       <td style="${volStyle}">${volText}</td>
       <td>${yangText}</td>
       <td>${s.pullback_10d ? '<span style="color:#1a7f37;font-weight:600">回调↑</span>' : '<span style="color:var(--muted)">—</span>'}</td>
-      <td style="font-weight:700;color:${scoreColor}">${s.score || 0}/5</td>
+      <td style="font-weight:700;color:${scoreColor}">${scoreText}</td>
       <td>${signalBadge(s.signal)}</td>
     </tr>`;
   }).join('');
