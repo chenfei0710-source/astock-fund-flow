@@ -1,0 +1,31 @@
+{
+  "generated": "2026-10-01",
+  "period": "2026-08-27~2026-10-01",
+  "review_days": 8,
+  "total_reco": 133,
+  "avg_win_rate": 0.3759,
+  "avg_gain": -0.73,
+  "avg_strategy_score": 5.75,
+  "grade": "D（待优化）",
+  "signal_avg": {
+    "ma_align": 33.6,
+    "macd_golden": 54.0,
+    "macd_zero": 51.6,
+    "vol_2x": 48.0,
+    "yang_cross": 46.4,
+    "pullback_10d": 46.8
+  },
+  "new_weights": {
+    "macd_golden": 4,
+    "macd_death": -3,
+    "macd_zero": -1,
+    "ma_align": 0.8,
+    "rsi_healthy": 1,
+    "rsi_overbought": -2,
+    "vol_moderate": 1,
+    "yang_cross_2": 2,
+    "yang_cross_1": 1,
+    "pullback_10d": 1
+  },
+  "notes": "月均胜率38%，已大幅调整权重，关注市场环境变化"
+}
