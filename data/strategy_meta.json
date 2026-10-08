@@ -1,17 +1,18 @@
 {
   "weights": {
-    "macd_golden": 4,
+    "macd_golden": 3,
     "macd_death": -3,
-    "macd_zero": -1,
-    "ma_align": 0.8,
+    "macd_zero": 0,
+    "ma_align": -2,
     "rsi_healthy": 1,
     "rsi_overbought": -2,
-    "vol_moderate": 1,
-    "yang_cross_2": 2,
-    "yang_cross_1": 1,
-    "pullback_10d": 1
+    "vol_moderate": 0,
+    "yang_cross_2": 1,
+    "yang_cross_1": 0,
+    "pullback_10d": 0,
+    "score_max": 10
   },
-  "sample_days": -8,
-  "notes": "[月度优化] D（待优化） | 月均胜率38%，已大幅调整权重，关注市场环境变化",
-  "updated_date": "2026-10-01"
+  "sample_days": 9,
+  "notes": "基于9天数据自动计算；各信号均值命中率: ma_align=30.1%, macd_golden=50.4%, macd_zero=52.1%, vol_2x=45.0%, yang_cross=43.6%, pullback_10d=45.5%",
+  "updated_date": "2026-10-08"
 }
