@@ -75,9 +75,9 @@ def check(html, db):
         if v and abs(v - abs(db['zhuli'])) > 1:
             issues.append(f"主力KPI卡: HTML={v} DB={abs(db['zhuli'])}")
 
-        # 量能关键信号段
+        # 量能关键信号段（HTML 写绝对值，DB 可能带负号，用 abs 比较）
         v = find_num(r'主力净流出([-\d.]+)亿', html)
-        if v and abs(v - db['zhuli']) > 1:
+        if v and abs(v - abs(db['zhuli'])) > 1:
             issues.append(f"主力净流出叙事: HTML={v} DB={db['zhuli']}")
 
         # 超大单（注意"大单"会误匹配到"超大单"，用边界排除）
