@@ -17,21 +17,53 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4
 
+      - name: 交易日历判断（非交易日跳过）
+        id: trade_check
+        run: |
+          TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+          WEEKDAY=$(TZ='Asia/Shanghai' date '+%u')
+          echo "TODAY=$TODAY" >> $GITHUB_ENV
+
+          # 周末直接跳过
+          if [ "$WEEKDAY" = "6" ] || [ "$WEEKDAY" = "7" ]; then
+            echo "is_trading_day=false" >> $GITHUB_OUTPUT
+            echo "周末，跳过"
+            exit 0
+          fi
+
+          # 节假日列表（每年更新）
+          HOLIDAYS="2026-01-01 2026-01-02 2026-01-28 2026-01-29 2026-01-30 2026-01-31 2026-02-01 2026-02-02 2026-02-03 2026-02-04 2026-02-05 2026-02-06 2026-02-07 2026-04-04 2026-04-05 2026-04-06 2026-05-01 2026-05-02 2026-05-03 2026-05-04 2026-05-05 2026-06-19 2026-06-20 2026-09-25 2026-10-01 2026-10-02 2026-10-03 2026-10-04 2026-10-05 2026-10-06 2026-10-07 2026-10-08"
+
+          for h in $HOLIDAYS; do
+            if [ "$TODAY" = "$h" ]; then
+              echo "is_trading_day=false" >> $GITHUB_OUTPUT
+              echo "节假日 $TODAY，跳过"
+              exit 0
+            fi
+          done
+
+          echo "is_trading_day=true" >> $GITHUB_OUTPUT
+          echo "交易日 $TODAY，继续"
+
       - name: 设置 Python 3.11
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: 安装依赖
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         run: pip install curl_cffi py-mini-racer requests akshare yfinance
 
       - name: 运行爬虫
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         run: python scraper.py
         timeout-minutes: 30
         env:
           PYTHONUNBUFFERED: '1'
 
       - name: 验证关键数据完整性
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         run: |
           python3 - << 'EOF'
           import sqlite3, sys
@@ -81,12 +113,15 @@ jobs:
           EOF
 
       - name: 导出 JSON 数据
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         run: python export_json.py
 
       - name: 生成复盘报告
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         run: python gen_review.py
 
       - name: 数据自检（HTML vs 数据库）
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         run: |
           TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
           python verify_report.py "$TODAY"
@@ -97,9 +132,53 @@ jobs:
           echo "✅ 数据自检通过"
 
       - name: 提交并推送数据
+        if: steps.trade_check.outputs.is_trading_day == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ fund_flow.db review/
           git diff --cached --quiet || git commit -m "数据更新: $(date '+%Y-%m-%d')"
           git push
+
+      - name: 飞书告警（失败时通知）
+        if: failure() && steps.trade_check.outputs.is_trading_day == 'true'
+        run: |
+          # 获取飞书 token
+          TOKEN=$(curl -s -X POST "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal" \
+            -H "Content-Type: application/json" \
+            -d "{\"app_id\":\"${{ secrets.FEISHU_APP_ID }}\",\"app_secret\":\"${{ secrets.FEISHU_APP_SECRET }}\"}" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin).get('tenant_access_token',''))")
+
+          if [ -z "$TOKEN" ]; then
+            echo "飞书 token 获取失败，跳过告警"
+            exit 0
+          fi
+
+          TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+          # 构造告警卡片
+          CARD=$(python3 -c "
+          import json
+          card = {
+              'schema': '2.0',
+              'header': {
+                  'title': {'tag': 'plain_text', 'content': '⚠️ A股数据更新失败 · $TODAY'},
+                  'template': 'red'
+              },
+              'body': {
+                  'elements': [
+                      {'tag': 'div', 'text': {'tag': 'lark_md', 'content': '**日期**: $TODAY\n**失败步骤**: 详见 Actions 日志\n\n[查看运行日志]($RUN_URL)'}}
+                  ]
+              }
+          }
+          print(json.dumps(card))
+          ")
+
+          curl -s -X POST "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"receive_id\":\"${{ secrets.FEISHU_OPEN_ID }}\",\"msg_type\":\"interactive\",\"content\":$(echo "$CARD" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)))")}" \
+            > /dev/null 2>&1
+
+          echo "飞书告警已发送"
