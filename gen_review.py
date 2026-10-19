@@ -154,16 +154,16 @@ else:
 
 # 样本二叙事（机构兑现信号 / 资金面信号）
 flow_source_tag = f'（{mk_source}）' if is_estimated else ''
-flow_signal_text = '机构兑现信号，节前防御优先' if (zhuli < 0 and not is_estimated) else '资金面支撑，关注持续性'
+flow_signal_text = '机构兑现信号，防御优先' if (zhuli < 0 and not is_estimated) else '资金面支撑，关注持续性'
 flow_color_tag = 'up' if zhuli < 0 else 'text2'
 if is_estimated:
     sample2_narrative = (f'主力{flow_dir}{abs(zhuli):.2f}亿（{mk_source}，细分缺失）——'
                          f'<strong>资金方向明确但细分暂缺，待 CI 补抓</strong>。')
 elif zhuli < 0:
-    sample2_narrative = (f'本轮修复以来主力首次单日净流出{abs(zhuli):.2f}亿，'
+    sample2_narrative = (f'主力单日净流出{abs(zhuli):.2f}亿，'
                          f'超大单{chaoda:.2f}亿+大单{dadan:.2f}亿——机构在高位明确出货，'
                          f'散户+{sanhu:.1f}亿接盘。'
-                         f'<strong>节前窗口+机构兑现=减仓信号</strong>，仓位收缩优先。')
+                         f'<strong>机构兑现=减仓信号</strong>，仓位收缩优先。')
 else:
     sample2_narrative = (f'主力净流入{zhuli:.2f}亿，超大单{chaoda:.2f}亿+大单{dadan:.2f}亿——'
                          f'机构主导进攻，散户净流出{abs(sanhu):.1f}亿。'
@@ -590,7 +590,7 @@ html = f'''<!DOCTYPE html>
           <tr><td class="l">{dragon2_name}+{dragon2_chg}涨停（医疗器械TOP1）</td><td class="wrap">医疗器械</td><td class="wrap up">超跌反弹方向，关注分化</td></tr>
           <tr><td class="l">{max_lb_stock}{max_lb}板（全市场最高连板）</td><td class="wrap">连板高度</td><td class="wrap gold-t">高度打开=情绪未崩，但广度收敛</td></tr>
           <tr><td class="l">主力{flow_dir}{abs(zhuli):.0f}亿{flow_source_tag}</td><td class="wrap" style="color:var(--{flow_color_tag})">全市场</td><td class="wrap {'up' if zhuli < 0 else ''}"><strong>{flow_signal_text}</strong></td></tr>
-          <tr><td class="l">节前效应（9/25中秋，仅4个交易日）</td><td class="wrap" style="color:var(--up)">全市场</td><td class="wrap up"><strong>历史规律：节前缩量+高位兑现</strong></td></tr>
+          <tr><td class="l">两市成交{total_amount_str}</td><td class="wrap">量能</td><td class="wrap {'up' if zhuli < 0 else ''}"><strong>{'缩量' if total_amount and total_amount < 12000 else '放量' if total_amount and total_amount > 18000 else '温和'}</strong></td></tr>
         </tbody>
       </table>
     </div>
@@ -662,7 +662,7 @@ html = f'''<!DOCTYPE html>
     <div class="card" style="border-color:rgba(224,49,49,.25)">
       <div class="card-title"><span class="dot" style="background:var(--up)"></span>空头隐患（风险信号）</div>
       <ul class="cklist">
-        {f'<li style="color:var(--up)"><strong>主力净流出{abs(zhuli):.2f}亿（本轮修复首次机构兑现）</strong>，高位分歧信号明确</li>' if zhuli < 0 and not is_estimated else ''}
+        {f'<li style="color:var(--up)"><strong>主力净流出{abs(zhuli):.2f}亿（机构兑现）</strong>，高位分歧信号明确</li>' if zhuli < 0 and not is_estimated else ''}
         {f'<li style="color:var(--up)"><strong>主力资金为估算值（{mk_source}），细分缺失</strong>，需待 CI 补抓后确认方向</li>' if is_estimated else ''}
         <li>炸板率{zhaban_rate}%，分歧大幅加剧</li>
         <li>涨停{zt_count}家、跌停{dt_count}家，广度收敛</li>
@@ -721,7 +721,7 @@ html = f'''<!DOCTYPE html>
           </svg>
           <div class="sc-meta">
             <div class="sc-label">情景 B</div>
-            <div class="sc-title">弱势震荡<br>节前缩量</div>
+            <div class="sc-title">弱势震荡<br>缩量调整</div>
           </div>
         </div>
         <div class="sc-body">
@@ -736,7 +736,7 @@ html = f'''<!DOCTYPE html>
         </div>
         <div class="sc-action">
           <div class="sc-action-lbl">应对策略</div>
-          仓位收缩至3成，只留传媒核心（智度分歧低吸）；其余全部兑现；现金比例提至7成+，节前三个交易日保留弹药。
+          仓位收缩至3成，只留核心标的（龙头分歧低吸）；其余全部兑现；现金比例提至7成+，保留弹药。
         </div>
       </div>
 
@@ -767,7 +767,7 @@ html = f'''<!DOCTYPE html>
         </div>
         <div class="sc-action">
           <div class="sc-action-lbl">应对策略</div>
-          无条件降仓至2成以下；不抢高标 / 不参与超跌反弹；以MA5为生命线（破位即离场）；等节前最后1-2个交易日冰点信号再决定节后布局。
+          无条件降仓至2成以下；不抢高标 / 不参与超跌反弹；以MA5为生命线（破位即离场）；等待冰点信号再决定布局。
         </div>
       </div>
 
@@ -777,17 +777,17 @@ html = f'''<!DOCTYPE html>
     <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-top:14px;padding:10px 14px;background:var(--surface2);border-radius:8px;font-size:.76rem;color:var(--text3)">
       <span>A+B+C = 100%</span>
       <span style="color:var(--border2)">|</span>
-      <span>概率基于今日{nav_tag_short}{zhuli:.0f}亿 · 炸板率{zhaban_rate}% · 节前窗口双重时间压力</span>
+      <span>概率基于今日{nav_tag_short}{zhuli:.0f}亿 · 炸板率{zhaban_rate}% · 主力{flow_dir}市场环境</span>
     </div>
   </div>
 
   <!-- 盯盘五件事 -->
   <div class="card">
-    <div class="card-title"><span class="dot gold"></span>明日盯盘五件事（9月23日验证清单）</div>
+    <div class="card-title"><span class="dot gold"></span>明日盯盘五件事（{tomorrow}验证清单）</div>
     <ol class="watch5">
       <li><strong>9:15-9:25 竞价</strong> — {max_lb_stock}（情绪总开关：7板=情景A，跌停/深水=情景C）、{dragon1_name}（传媒总开关：高开3%+带量=主线延续）</li>
       <li><strong>9:30-9:45 跌停数</strong> — 15分钟内跌停&gt;5家=情绪反转预警，立即执行情景C策略</li>
-      <li><strong>10:00后 成交额</strong> — 两市是否达今日同时段90%（节前缩量是否加速）</li>
+      <li><strong>10:00后 成交额</strong> — 两市是否达今日同时段90%（缩量是否加速）</li>
       <li><strong>盘中 主力资金</strong> — 主力净流入是否转正（&gt;50亿=情景A，-100至-200亿=情景B，-300亿+=情景C）</li>
       <li><strong>14:30 尾盘成色</strong> — {dragon1_name}/{reco0_name}能否守住日内均线（传媒主线真实强度）</li>
     </ol>
@@ -816,7 +816,7 @@ html = f'''<!DOCTYPE html>
     </div>
     <div class="hbox" style="margin-top:12px;font-size:.78rem">
       <strong>主线操作总纲：</strong>周二胜负关键——{dragon1_name}能否晋级2板。晋级=情景A，加仓传媒；炸板=情景B，收缩仓位。<br>
-      <strong style="color:var(--up)">节前总仓位：周二≤4成，周四起≤3成；无论浮盈浮亏，节前保留≥6成现金。</strong>
+      <strong style="color:var(--up)">总仓位控制：弱势≤4成，明确下行≤3成；无论浮盈浮亏，保留≥6成现金。</strong>
     </div>
   </div>
 
@@ -855,7 +855,7 @@ html = f'''<!DOCTYPE html>
 
   <!-- 仓位风控 -->
   <div class="card" style="border-color:rgba(255,107,53,.3)">
-    <div class="card-title"><span class="dot"></span>仓位与风控总方案（节前三天）</div>
+    <div class="card-title"><span class="dot"></span>仓位与风控总方案</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
         <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">周二总仓上限</div>
@@ -865,7 +865,7 @@ html = f'''<!DOCTYPE html>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
         <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">周四起上限</div>
         <div style="font-size:1.8rem;font-weight:900;color:var(--accent)">≤3成</div>
-        <div style="font-size:.68rem;color:var(--text3)">节前最后两日</div>
+        <div style="font-size:.68rem;color:var(--text3)">最后两日</div>
       </div>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
         <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">单票止损线</div>
@@ -873,13 +873,13 @@ html = f'''<!DOCTYPE html>
         <div style="font-size:.68rem;color:var(--text3)">机械执行不手软</div>
       </div>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">节前第一目标</div>
+        <div style="font-size:.68rem;color:var(--text3);margin-bottom:4px">第一目标</div>
         <div style="font-size:1.4rem;font-weight:900;color:var(--down)">保住利润</div>
         <div style="font-size:.68rem;color:var(--text3)">不是再赚一轮</div>
       </div>
     </div>
     <div style="padding:12px 16px;background:rgba(245,159,0,.08);border-radius:8px;text-align:center;font-size:.88rem;font-weight:700;color:var(--gold)">
-      节前三天第一目标是保住修复行情利润，主力{zhuli:.0f}亿已发出兑现信号。
+      当前第一目标是保住已有利润，主力{zhuli:.0f}亿已发出兑现信号。
     </div>
   </div>
 </div>
@@ -909,18 +909,18 @@ html = f'''<!DOCTYPE html>
       <div class="wl-item danger"><div class="wl-nm">机场航运</div><div class="wl-sub">净流出-3.53亿，-0.45%，防御方向持续走弱。</div></div>
       <div class="wl-item danger"><div class="wl-nm">化学纤维</div><div class="wl-sub">净流出-3.49亿，-0.36%，周期方向分化走弱。</div></div>
       <div class="wl-item danger"><div class="wl-nm">环境治理</div><div class="wl-sub">净流出-3.68亿，+0.30%假涨，资金撤离。</div></div>
-      <div class="wl-item"><div class="wl-nm">节前板块性回避</div><div class="wl-sub">所有主力连续3日净流出板块、北证50方向、高位炸板品种。</div></div>
+      <div class="wl-item"><div class="wl-nm">板块性回避</div><div class="wl-sub">所有主力连续3日净流出板块、高位炸板品种。</div></div>
     </div>
   </div>
 
   <div class="card" style="border-color:rgba(245,159,0,.3)">
-    <div class="card-title"><span class="dot gold"></span>节前三天纪律审查 — 周二开盘五道关卡</div>
+    <div class="card-title"><span class="dot gold"></span>纪律审查 — 开盘五道关卡</div>
     <ol class="gate">
       <li>主线方向是否确立？（{main_sector_name}+AI应用=跟进；否则观望）</li>
       <li>主力资金是否转正？（&gt;0亿=可跟进；-100亿以下=降仓）</li>
       <li>是否属于高位炸板品种或散户接盘品种？（回避）</li>
       <li>介入条件是否满足？（否则放弃）</li>
-      <li>是否符合节前仓位上限？（周二≤4成，周四起≤3成）</li>
+      <li>是否符合仓位上限？（弱势≤4成，下行≤3成）</li>
     </ol>
   </div>
 </div>
