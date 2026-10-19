@@ -654,10 +654,9 @@ html = f'''<!DOCTYPE html>
       <ul class="cklist">
         <li>连板高度{max_lb}板（{max_lb_stock}），情绪高度未崩</li>
         <li>{main_sector_name}板块确立新主线：{dragon1_name}涨停+板块主力+{main_sector_net:.1f}亿</li>
-        <li>跌停清零（0家），尾部风险未爆发</li>
-        <li>科创50+0.46%相对强势，芯片设计方向未走弱</li>
-        <li>{dragon2_name}+{dragon2_chg}、{ths3_stock}+{ths3_chg}，赚钱效应仍在</li>
-        <li>上证连续三日站上MA5/MA20，中期趋势未破</li>
+        <li>跌停{dt_count}家，{'尾部风险未爆发' if dt_count <= 5 else '尾部风险可控' if dt_count <= 15 else '尾部风险需警惕'}</li>
+        <li>科创50{idx_val('000688','chg_pct','')}{'相对强势' if idx_val('000688','chg_pct',0) and float(idx_val('000688','chg_pct',0)) > 0 else '方向走弱'}，芯片设计方向{'未走弱' if idx_val('000688','chg_pct',0) and float(idx_val('000688','chg_pct',0)) > 0 else '已走弱'}</li>
+        <li>{dragon2_name}+{dragon2_chg}、{ths3_stock}+{ths3_chg}，赚钱效应{'仍在' if float(str(dragon2_chg).replace('%','').replace('+','') or 0) > 0 else '减弱'}</li>
       </ul>
     </div>
     <div class="card" style="border-color:rgba(224,49,49,.25)">
@@ -668,8 +667,7 @@ html = f'''<!DOCTYPE html>
         <li>炸板率{zhaban_rate}%，分歧大幅加剧</li>
         <li>涨停{zt_count}家、跌停{dt_count}家，广度收敛</li>
         {f'<li>散户+{sanhu:.1f}亿接盘：机构出货散户接，典型高位反转结构</li>' if zhuli < 0 and sanhu > 0 and not is_estimated else ''}
-        <li>北证50 {bj_chg:+.2f}%，小盘尾部风险升温</li>
-        <li style="color:var(--up)"><strong>节前窗口已开启（9/25中秋，仅4个交易日）</strong>，历史节前缩量+高位兑现</li>
+        {f'<li>{idx_val("000688","name","科创50")} {idx_val("000688","chg_pct","+0")}%，小盘尾部风险{"升温" if idx_val("000688","chg_pct",0) and float(idx_val("000688","chg_pct",0)) < 0 else "暂缓"}</li>'}
       </ul>
     </div>
   </div>
