@@ -14,5 +14,5 @@
   },
   "sample_days": 14,
   "notes": "基于14天数据自动计算；各信号均值命中率: ma_align=69.3%, macd_golden=40.7%, macd_zero=61.1%, vol_2x=37.4%, yang_cross=35.9%, pullback_10d=45.4%",
-  "updated_date": "2026-10-16"
+  "updated_date": "2026-10-19"
 }

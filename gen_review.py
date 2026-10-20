@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 today_dt = datetime.strptime(TODAY, '%Y-%m-%d')
 weekday_cn = ['周一','周二','周三','周四','周五','周六','周日'][today_dt.weekday()]
 tomorrow = (today_dt + timedelta(days=1)).strftime('%Y-%m-%d')
-prev_date = day.get('strategy_review', {}).get('prev_date', (today_dt - timedelta(days=1)).strftime('%Y-%m-%d'))
+prev_date = (day.get('strategy_review') or {}).get('prev_date', (today_dt - timedelta(days=1)).strftime('%Y-%m-%d'))
 today_short = f"{today_dt.month}/{today_dt.day}"
 prev_short = f"{(today_dt - timedelta(days=1)).month}/{(today_dt - timedelta(days=1)).day}"
 tomorrow_short = f"{(today_dt + timedelta(days=1)).month}/{(today_dt + timedelta(days=1)).day}"
@@ -430,14 +430,14 @@ def kpi_chg(close_val, chg_val):
         return '--', ''
     cls = 'up' if float(chg_val) >= 0 else 'dn'
     return fmt_chg_color(chg_val), cls
-sr = day['strategy_review']
+sr = day['strategy_review'] or {}
 mk = day['market']
 em = day['em_sectors']
 ths = day['ths_sectors']
 reco = day['stock_reco']
 
 # 策略复盘详情
-details = sr['detail']
+details = sr.get('detail') or []
 rows_html = ''.join(
     f'<tr><td class="l">{x["name"]}</td><td>{x["score"]}</td>'
     f'<td>{x["prev_price"]}</td><td>{x["today_price"]}</td>'
@@ -656,7 +656,7 @@ html = f'''<!DOCTYPE html>
         <li>{main_sector_name}板块确立新主线：{dragon1_name}涨停+板块主力+{main_sector_net:.1f}亿</li>
         <li>跌停{dt_count}家，{'尾部风险未爆发' if dt_count <= 5 else '尾部风险可控' if dt_count <= 15 else '尾部风险需警惕'}</li>
         <li>科创50{idx_val('000688','chg_pct','')}{'相对强势' if idx_val('000688','chg_pct',0) and float(idx_val('000688','chg_pct',0)) > 0 else '方向走弱'}，芯片设计方向{'未走弱' if idx_val('000688','chg_pct',0) and float(idx_val('000688','chg_pct',0)) > 0 else '已走弱'}</li>
-        <li>{dragon2_name}+{dragon2_chg}、{ths3_stock}+{ths3_chg}，赚钱效应{'仍在' if float(str(dragon2_chg).replace('%','').replace('+','') or 0) > 0 else '减弱'}</li>
+        <li>{dragon2_name}+{dragon2_chg}、{ths3_stock}+{ths3_chg}，赚钱效应{'仍在' if (lambda v: v not in ('--', '', None) and float(str(v).replace('%','').replace('+','')) > 0)(dragon2_chg) else '减弱'}</li>
       </ul>
     </div>
     <div class="card" style="border-color:rgba(224,49,49,.25)">

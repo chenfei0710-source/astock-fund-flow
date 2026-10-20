@@ -129,7 +129,7 @@ fi
 
 # 5. 生成当日复盘报告（基于9/18 CSS框架 + 当日真实数据）
 echo "[$TS] 生成复盘报告..." >> "$LOG"
-$PYTHON "$REPO_DIR/gen_review.py" >> "$LOG" 2>&1
+$PYTHON "$REPO_DIR/gen_review.py" "$DATE" >> "$LOG" 2>&1
 if [ $? -eq 0 ]; then
     REPORT_FILE="review/$DATE/review_$DATE.html"
     if [ -f "$REPORT_FILE" ]; then
