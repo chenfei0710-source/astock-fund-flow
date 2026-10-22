@@ -11,6 +11,14 @@ PYTHON="/Library/Developer/CommandLineTools/usr/bin/python3"
 DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
 TS=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
+# ── 交易日判断：非交易日直接退出 ──
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Developer/CommandLineTools/usr/bin:$PATH"
+$PYTHON "$REPO_DIR/is_trade_day.py" "$DATE" > /dev/null 2>&1
+if [ $? -eq 1 ]; then
+    echo "[$TS] $DATE 非交易日，跳过自愈" >> "$LOG"
+    exit 0
+fi
+
 # ── git push 辅助函数（crontab 非交互模式从 keychain 取 token）──
 git_push() {
     local token

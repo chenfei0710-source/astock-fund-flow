@@ -12,6 +12,19 @@ DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
 TS=$(TZ='Asia/Shanghai' date '+%H:%M:%S')
 REPORT_URL="https://chenfei0710-source.github.io/astock-fund-flow/review/"
 
+# ── 交易日判断：非交易日直接退出，不推送 ──
+$PYTHON "$REPO_DIR/is_trade_day.py" "$DATE" > /dev/null 2>&1
+TRADE_DAY_EXIT=$?
+if [ $TRADE_DAY_EXIT -ne 0 ]; then
+    # 退出码 1=非交易日, 2=查询失败(当交易日处理)
+    if [ $TRADE_DAY_EXIT -eq 1 ]; then
+        echo "[$TS] $DATE 非交易日，跳过推送"
+        exit 0
+    fi
+    # 退出码 2：查询失败，继续执行（避免漏推）
+    echo "[$TS] 交易日查询失败，默认按交易日处理"
+fi
+
 # ── 飞书机器人配置（从本地配置文件读取，避免泄露密钥）──
 FEISHU_CONFIG="/Users/admin/.assistant/fund_flow_github/.feishu.env"
 if [ -f "$FEISHU_CONFIG" ]; then

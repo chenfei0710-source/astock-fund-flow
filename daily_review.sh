@@ -11,6 +11,13 @@ DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
 TS=$(TZ='Asia/Shanghai' date '+%H:%M:%S')
 LOG="$REPO_DIR/daily_review.log"
 
+# ── 交易日判断：非交易日直接退出 ──
+$PYTHON "$REPO_DIR/is_trade_day.py" "$DATE" > /dev/null 2>&1
+if [ $? -eq 1 ]; then
+    echo "[$TS] $DATE 非交易日，跳过 review" >> "$LOG"
+    exit 0
+fi
+
 cd "$REPO_DIR" || exit 1
 
 # 拉最新
