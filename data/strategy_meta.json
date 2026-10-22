@@ -3,16 +3,16 @@
     "macd_golden": 2,
     "macd_death": -3,
     "macd_zero": 0,
-    "ma_align": 1,
+    "ma_align": 0,
     "rsi_healthy": 1,
     "rsi_overbought": -2,
-    "vol_moderate": 0,
+    "vol_moderate": -1,
     "yang_cross_2": 1,
     "yang_cross_1": 0,
     "pullback_10d": 0,
     "score_max": 10
   },
-  "sample_days": 16,
-  "notes": "基于16天数据自动计算；各信号均值命中率: ma_align=60.3%, macd_golden=40.7%, macd_zero=52.2%, vol_2x=45.9%, yang_cross=40.4%, pullback_10d=50.6%",
+  "sample_days": 17,
+  "notes": "基于17天数据自动计算；各信号均值命中率: ma_align=55.1%, macd_golden=42.0%, macd_zero=49.0%, vol_2x=41.1%, yang_cross=39.5%, pullback_10d=48.2%",
   "updated_date": "2026-10-22"
 }
