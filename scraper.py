@@ -764,7 +764,6 @@ async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_thresho
                 'fs': 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',
                 'fields': 'f2,f3,f5,f6,f8,f10,f12,f14,f15,f16,f17,f18,f7',
             }, timeout=30)
-        d = r.json()
         spot_list = d.get('data', {}).get('diff', [])
         print(f"[Plan C] EM clist 返回 {len(spot_list)} 只")
         spot_candidates = []
