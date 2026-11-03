@@ -5,6 +5,9 @@
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Developer/CommandLineTools/usr/bin:$PATH"
 
+# ── 清除可能被 launchd 注入的脏代理环境变量（同 self_heal.sh）──
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy NO_PROXY no_proxy
+
 REPO_DIR="/Users/admin/.assistant/fund_flow_github"
 PYTHON="/Library/Developer/CommandLineTools/usr/bin/python3"
 DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')

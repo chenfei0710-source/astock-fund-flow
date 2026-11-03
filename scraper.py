@@ -752,6 +752,41 @@ def _em_get(url, params=None, timeout=15):
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read())
 
+
+def _tencent_kline_fetch(code, days=120):
+    """Plan D: 腾讯日K线 (web.ifzq.gtimg.cn)，push2his 挂时备用。
+    返回与 push2his klines 兼容的逗号分隔字符串列表：
+    ['date,open,close,high,low,volume', ...]
+    Why: 2026-10-30 / 2026-11-02 push2his.eastmoney.com 连续宕机，
+         Plan C 拉不到历史K线导致 stock_reco=0；腾讯接口稳定且数据完整。
+    """
+    # code 纯数字 → 腾讯格式 sh600000 / sz000001 / sz300001 / sh688001
+    if code.startswith('6'):
+        tq_code = f'sh{code}'
+    elif code.startswith(('0', '3')):
+        tq_code = f'sz{code}'
+    elif code.startswith('8') or code.startswith('4'):
+        tq_code = f'bj{code}'  # 北交所
+    else:
+        return []
+    end = date.today().strftime('%Y-%m-%d')
+    beg = (date.today() - timedelta(days=days)).strftime('%Y-%m-%d')
+    url = f'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={tq_code},day,{beg},{end},{days},qfq'
+    req = urllib.request.Request(url, headers={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://gu.qq.com/',
+    })
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read())
+    # 返回结构: {"data": {"sh600000": {"qfqday": [[date,open,close,high,low,volume], ...]}}}
+    stock_data = data.get('data', {}).get(tq_code, {})
+    # qfqday 前复权 / day 不复权；优先 qfqday
+    raw = stock_data.get('qfqday') or stock_data.get('day') or []
+    # 转成 push2his 兼容格式: date,open,close,high,low,volume
+    # 腾讯原始: [date, open, close, high, low, volume]
+    return [f"{r[0]},{r[1]},{r[2]},{r[3]},{r[4]},{r[5]}" for r in raw if len(r) >= 6]
+
+
 async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_threshold):
     """Plan C: EM clist 选 TOP30 候选 + push2his 拉历史 K 线算完整技术面。
     返回 (reco_list, price_map) 或 ([], {}) 失败时。"""
@@ -800,6 +835,7 @@ async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_thresho
         print(f"[Plan C] 候选 TOP30，开始拉历史 K 线计算技术面")
 
         kline_fetched = 0
+        kline_from_plan_d = 0  # 腾讯 Plan D 命中数
         scored = []
         for s in top30:
             code = s['code']
@@ -821,8 +857,19 @@ async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_thresho
                         break
                 except Exception as e:
                     if attempt == 1:
-                        print(f"  [Plan C] {code} K线失败: {str(e)[:50]}")
+                        print(f"  [Plan C] {code} push2his 失败: {str(e)[:50]}，尝试 Plan D 腾讯")
                     await asyncio.sleep(0.3)
+            # Plan D: push2his 拉不到或不够 5 条时，fallback 到腾讯日K线
+            # Why: push2his 偶发返回少量 klines（<5条）也算失败，原条件 and not klines
+            #      会漏掉这种情况，导致 Plan D 不触发
+            if not klines or len(klines) < 5:
+                try:
+                    tencent_klines = _tencent_kline_fetch(code, days=120)
+                    if tencent_klines and len(tencent_klines) >= 5:
+                        klines = tencent_klines
+                        kline_from_plan_d += 1
+                except Exception as e:
+                    print(f"  [Plan D] {code} 腾讯K线失败: {str(e)[:50]}")
             if not klines or len(klines) < 5:
                 continue
             kline_fetched += 1
@@ -846,7 +893,7 @@ async def _plan_c_fetch(ths_stock_map, weights, market_regime, min_score_thresho
             if len(scored) >= 15:
                 break
             await asyncio.sleep(0.2)
-        print(f"[Plan C] K线拉取 {kline_fetched}/30 只，评分后 {len(scored)} 只")
+        print(f"[Plan C] K线拉取 {kline_fetched}/30 只（其中 Plan D 腾讯 {kline_from_plan_d} 只），评分后 {len(scored)} 只")
         scored.sort(key=lambda x: (x.get('score', 0), x.get('zhuli', 0), x['chg']), reverse=True)
         top15 = scored[:15]
         # 兜底：评分后不足 15 只，补未拉 K 线的候选（用今日快照估算）

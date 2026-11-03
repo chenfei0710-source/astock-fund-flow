@@ -11,6 +11,13 @@ PYTHON="/Library/Developer/CommandLineTools/usr/bin/python3"
 DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
 TS=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
+# ── 清除可能被 launchd 注入的脏代理环境变量 ──
+# Why: 2026-10-30 和 2026-11-02 连续两次 self_heal 跑 scraper 时
+#      curl_cffi/akshare 全报 Connection closed，但 curl 直测数据源是通的，
+#      定位为 launchd 注入的 HTTP_PROXY 等变量指向已失效代理端口
+# How to apply: 任何从 crontab 启动的脚本都加这段，scraper.py 启动前确保环境干净
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy NO_PROXY no_proxy
+
 # ── 交易日判断：非交易日直接退出 ──
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Developer/CommandLineTools/usr/bin:$PATH"
 $PYTHON "$REPO_DIR/is_trade_day.py" "$DATE" > /dev/null 2>&1
