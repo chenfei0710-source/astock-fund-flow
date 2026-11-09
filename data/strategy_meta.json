@@ -12,7 +12,7 @@
     "pullback_10d": -1,
     "score_max": 10
   },
-  "sample_days": 25,
-  "notes": "基于25天数据自动计算；各信号均值命中率: ma_align=60.9%, macd_golden=50.4%, macd_zero=47.7%, vol_2x=37.4%, yang_cross=39.6%, pullback_10d=34.7%",
-  "updated_date": "2026-11-06"
+  "sample_days": 26,
+  "notes": "基于26天数据自动计算；各信号均值命中率: ma_align=59.3%, macd_golden=50.4%, macd_zero=47.7%, vol_2x=38.1%, yang_cross=38.9%, pullback_10d=34.7%",
+  "updated_date": "2026-11-09"
 }
