@@ -1791,7 +1791,11 @@ async def main():
         if not ms_ok: missing.append("market_stats")
         if idx_total > 0 and idx_zero == idx_total: missing.append("index_daily(涨跌幅全0)")
         if em_all_zero: missing.append("sector_flow_em(资金全0)")
-        if ths_count == 0: missing.append("sector_flow_ths(无数据)")
+        # sector_flow_ths 降级为可选——akshare ths.js 文件缺失是确定性故障，
+        # 重试也修不了（需重装 akshare），且 gen_review.py 能在 ths 为空时
+        # 自动回退 EM 板块数据。这里只告警，不阻塞后续步骤。
+        if ths_count == 0:
+            print(f"\n⚠️ sector_flow_ths(无数据) — akshare ths.js 可能缺失，gen_review 将回退 EM 板块数据")
 
         if not missing:
             print(f"\n✅ 数据完整性检查通过: {trade_date}")
